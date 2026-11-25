@@ -1,0 +1,72 @@
+name: Build XFY iOS (.ipa Sideloadly)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-ios-ipa:
+    name: Build iOS IPA (Unsigned pour Sideloadly)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter 3.50.1 (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.1'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze & Run Unit Tests
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Build iOS Release (No Codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package IPA for Sideloadly
+        run: |
+          set -e
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Erreur: $APP_PATH introuvable"
+            exit 1
+          fi
+          if [ ! -f "$APP_PATH/money_chime.wav" ]; then
+            echo "Copie de secours money_chime.wav dans Runner.app"
+            cp ios/Runner/money_chime.wav "$APP_PATH/money_chime.wav"
+          fi
+          rm -rf build/ios/ipa_payload build/ios/xfy-ios-sideloadly.ipa
+          mkdir -p build/ios/ipa_payload/Payload
+          cp -R "$APP_PATH" build/ios/ipa_payload/Payload/
+          cd build/ios/ipa_payload
+          zip -r -y ../xfy-ios-sideloadly.ipa Payload
+          ls -lh ../xfy-ios-sideloadly.ipa
+
+      - name: Upload xfy-ios-sideloadly.ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xfy-ios-sideloadly-ipa
+          path: build/ios/xfy-ios-sideloadly.ipa
+          retention-days: 30
+
+      - name: Instructions Sideloadly
+        run: |
+          cat <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          ## ✅ XFY iOS (.ipa) prêt pour Sideloadly
+
+          1. Téléchargez l'artifact **xfy-ios-sideloadly-ipa** ci-dessous et décompressez le `.zip` pour obtenir `xfy-ios-sideloadly.ipa`.
+          2. Sur Windows ou Mac, ouvrez **Sideloadly** (https://sideloadly.io) et branchez l'iPhone en USB.
+          3. Glissez `xfy-ios-sideloadly.ipa` dans Sideloadly, entrez un Apple ID gratuit, puis cliquez sur **Start**.
+          4. Sur l'iPhone : **Réglages → Général → VPN et gestion de l'appareil** → faites confiance au profil, puis ouvrez **XFY** !
+          EOF
