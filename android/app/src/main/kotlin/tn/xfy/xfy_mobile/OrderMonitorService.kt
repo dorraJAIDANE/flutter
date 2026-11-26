@@ -48,7 +48,7 @@ class OrderMonitorService : Service() {
         const val DEFAULT_SOUND_KEY = "shopify_chaching"
 
         const val CHANNEL_STATUS_ID = "xfy_monitor_status_v1"
-        const val CHANNEL_ORDER_SHOPIFY_ID = "xfy_orders_shopify_chaching_v4"
+        const val CHANNEL_ORDER_SHOPIFY_ID = "xfy_orders_shopify_chaching_v5"
         const val CHANNEL_ORDER_COINS_ID = "xfy_orders_gold_coins_v4"
         const val CHANNEL_ORDER_CRYSTAL_ID = "xfy_orders_crystal_bell_v4"
         const val CHANNEL_ORDER_POP_ID = "xfy_orders_sale_pop_v4"
@@ -80,12 +80,13 @@ class OrderMonitorService : Service() {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            // Nettoyer les anciens canaux v2/v3 pour adopter les 4 sonneries v4 (Shopify/Converty par défaut)
+            // Nettoyer les anciens canaux v2/v3/v4 pour adopter la nouvelle sonnerie Cha-Ching v5
             try {
                 nm.deleteNotificationChannel("xfy_new_orders_sound_v2")
                 nm.deleteNotificationChannel("xfy_new_orders_silent_v2")
                 nm.deleteNotificationChannel("xfy_new_orders_money_v3")
                 nm.deleteNotificationChannel("xfy_new_orders_silent_v3")
+                nm.deleteNotificationChannel("xfy_orders_shopify_chaching_v4")
             } catch (_: Exception) {}
 
             // 1. Canal discret pour l'état "Surveillance active"

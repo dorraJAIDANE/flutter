@@ -47,7 +47,7 @@ class OrderNotificationService {
       id: 'shopify_chaching',
       rawResource: 'shopify_chaching',
       fileName: 'shopify_chaching.wav',
-      androidChannelId: 'xfy_orders_shopify_chaching_v4',
+      androidChannelId: 'xfy_orders_shopify_chaching_v5',
       androidChannelName: 'Commandes XFY • Cha-Ching (Shopify)',
       titleKey: 'ringtone_shopify_title',
       subtitleKey: 'ringtone_shopify_sub',
@@ -179,12 +179,13 @@ class OrderNotificationService {
       debugPrint('[OrderNotificationService] permission check error: $e');
     }
 
-    // Supprimer les anciens canaux v2/v3 pour adopter proprement les 4 sonneries v4
+    // Supprimer les anciens canaux v2/v3/v4 pour adopter proprement la nouvelle sonnerie Cha-Ching v5
     for (final oldId in const [
       'xfy_new_orders_sound_v2',
       'xfy_new_orders_silent_v2',
       'xfy_new_orders_money_v3',
       'xfy_new_orders_silent_v3',
+      'xfy_orders_shopify_chaching_v4',
     ]) {
       try {
         await androidPlugin.deleteNotificationChannel(oldId);
