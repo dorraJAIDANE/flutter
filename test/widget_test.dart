@@ -49,6 +49,75 @@ void main() {
       ),
       'annulee',
     );
+    // Explicit XFY status "encaissee" MUST ALWAYS count as delivered ("encaissee"),
+    // even if a previous carrier statutIntigo was still "En cours de livraison", "Retour reçu" or "Annulation"
+    expect(
+      XfyFormatters.computeUnifiedStatus(
+        status: 'encaissee',
+        statutIntigo: 'En cours de livraison',
+      ),
+      'encaissee',
+    );
+    expect(
+      XfyFormatters.computeUnifiedStatus(
+        status: 'encaissee',
+        statutIntigo: 'Retour reçu',
+      ),
+      'encaissee',
+    );
+    expect(
+      XfyFormatters.computeUnifiedStatus(
+        status: 'encaissee',
+        statutIntigo: 'Annulation',
+      ),
+      'encaissee',
+    );
+  });
+
+  test('Manual XFY encaissee status auto-fills dateLivraison and counts as delivered in stats', () {
+    final baseOrder = OrderModel.fromJson({
+      'id': 99,
+      'nom': 'Sami',
+      'phoneNumber': '29123456',
+      'status': 'traitee',
+      'statutIntigo': 'En cours de livraison',
+      'produit': 'Montre Pro',
+      'quantite': '1',
+      'prix': '80 DT',
+      'fraisLivraison': 8,
+      'total': 88,
+      'timestamp': '2026-10-01T10:00:00',
+    });
+
+    final payload = baseOrder.toUpdatePayload(newStatus: 'encaissee');
+    expect(payload['status'], 'encaissee');
+    expect((payload['dateLivraison'] ?? '').toString().isNotEmpty, isTrue);
+
+    final now = DateTime(2026, 11, 26, 21, 0);
+    final encaisseeOrder = baseOrder.copyWith(
+      status: 'encaissee',
+      dateLivraison: '26/11/2026 20:30',
+    );
+    expect(encaisseeOrder.unifiedStatus, 'encaissee');
+    expect(encaisseeOrder.isDelivered, isTrue);
+
+    final stats = XfyStatsEngine.compute(
+      allOrders: [encaisseeOrder],
+      products: const [
+        ProductModel(id: 100, nom: 'Montre Pro', price: 80),
+      ],
+      preset: 'today',
+      settings: const StoreSettingsModel(
+        storeId: 1,
+        fraisLivraison: 8,
+        fraisLivraisonSociete: 6,
+      ),
+      nowOverride: now,
+    );
+    expect(stats.deliveredOrdersCount, 1);
+    expect(stats.productsSold, 1);
+    expect(stats.revenue, 82.0); // 80 produit + 2 marge livraison
+    expect(stats.activeClientsCount, 1);
   });
 
   test('parseDateRobust handles DD/MM/YYYY, YYYY-MM-DD, space-time, and arrays', () {

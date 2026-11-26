@@ -321,7 +321,11 @@ class XfyApiService {
     if (data is Map<String, dynamic>) {
       return OrderModel.fromJson(data);
     }
-    return order.copyWith(status: newStatus, commentaire: newComment);
+    return order.copyWith(
+      status: newStatus,
+      commentaire: newComment,
+      dateLivraison: payload['dateLivraison']?.toString(),
+    );
   }
 
   Future<OrderModel> updateOrderFields(OrderModel order) async {

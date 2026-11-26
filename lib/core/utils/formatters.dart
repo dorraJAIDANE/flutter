@@ -124,6 +124,10 @@ class XfyFormatters {
     final si = stripAccents((statutIntigo ?? '').trim());
     final combined = '$s $si';
 
+    // Statut XFY explicitement "encaissee" -> toujours comptabilisé comme livré dans les statistiques
+    if (s.contains('encaiss')) {
+      return 'encaissee';
+    }
     if (combined.contains('annul') ||
         combined.contains('cancel') ||
         combined.contains('refus') ||

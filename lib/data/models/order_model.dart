@@ -412,6 +412,7 @@ class OrderModel {
     String? statutIntigo,
     String? deliveryCompany,
     String? envoyerAIntigo,
+    String? dateLivraison,
     bool? exchange,
   }) {
     final updatedRaw = Map<String, dynamic>.from(rawJson);
@@ -433,6 +434,7 @@ class OrderModel {
     if (statutIntigo != null) updatedRaw['statutIntigo'] = statutIntigo;
     if (deliveryCompany != null) updatedRaw['deliveryCompany'] = deliveryCompany;
     if (envoyerAIntigo != null) updatedRaw['envoyerAIntigo'] = envoyerAIntigo;
+    if (dateLivraison != null) updatedRaw['dateLivraison'] = dateLivraison;
     if (exchange != null) updatedRaw['exchange'] = exchange;
 
     return OrderModel(
@@ -465,7 +467,7 @@ class OrderModel {
       timestamp: timestamp,
       dateCommande: dateCommande,
       createdAt: createdAt,
-      dateLivraison: dateLivraison,
+      dateLivraison: dateLivraison ?? this.dateLivraison,
       dateRetour: dateRetour,
       datePremierRetour: datePremierRetour,
       dayMonth: dayMonth,
@@ -542,7 +544,20 @@ class OrderModel {
     if (statutIntigo != null) payload['statutIntigo'] = statutIntigo;
     if (deliveryCompany != null) payload['deliveryCompany'] = deliveryCompany;
 
-    payload['status'] = XfyFormatters.normalizeStatus(newStatus ?? status);
+    final targetStatus = XfyFormatters.normalizeStatus(newStatus ?? status);
+    payload['status'] = targetStatus;
+    if (dateLivraison != null) payload['dateLivraison'] = dateLivraison;
+    if (targetStatus == 'encaissee') {
+      final existingDl = (payload['dateLivraison'] ?? '').toString().trim();
+      if (existingDl.isEmpty ||
+          existingDl.toLowerCase() == 'non spécifié' ||
+          existingDl.toLowerCase() == 'null') {
+        final now = DateTime.now();
+        String p2(int n) => n.toString().padLeft(2, '0');
+        payload['dateLivraison'] =
+            '${p2(now.day)}/${p2(now.month)}/${now.year} ${p2(now.hour)}:${p2(now.minute)}';
+      }
+    }
     if (newComment != null) {
       payload['commentaire'] = newComment;
     }
