@@ -405,17 +405,17 @@ class _XfyCenterLogoBottomBar extends StatelessWidget {
                       ],
                     ),
                     child: Container(
-                      padding: const EdgeInsets.all(8),
                       decoration: const BoxDecoration(
-                        color: Colors.white,
+                        color: Color(0xFF02020A),
                         shape: BoxShape.circle,
                       ),
+                      clipBehavior: Clip.antiAlias,
                       child: Image.asset(
                         'assets/images/logoXFY.png',
-                        fit: BoxFit.contain,
+                        fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => const Icon(
                           Icons.bar_chart_rounded,
-                          color: XfyColors.primaryVibrant,
+                          color: Colors.white,
                           size: 26,
                         ),
                       ),

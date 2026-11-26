@@ -85,10 +85,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
         elevation: 3,
         onPressed: () {
           HapticFeedback.lightImpact();
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            builder: (_) => AddProductSheet(state: widget.state),
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => AddProductScreen(state: widget.state),
+            ),
           );
         },
         icon: const Icon(Icons.add_rounded),

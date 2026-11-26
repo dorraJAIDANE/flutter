@@ -107,14 +107,30 @@ class _SplashView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(
-              'assets/images/logoXFY.png',
-              height: 68,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const Icon(
-                Icons.storefront_rounded,
-                size: 56,
-                color: XfyColors.primary,
+            Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1E2A78).withValues(alpha: 0.25),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Image.asset(
+                'assets/images/logoXFY.png',
+                width: 92,
+                height: 92,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const Icon(
+                  Icons.storefront_rounded,
+                  size: 56,
+                  color: XfyColors.primary,
+                ),
               ),
             ),
             const SizedBox(height: 22),

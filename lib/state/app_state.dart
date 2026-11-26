@@ -1151,11 +1151,17 @@ class AppState extends ChangeNotifier {
   Future<void> createProduct({
     required Map<String, dynamic> productData,
     required List<String> imagePaths,
+    List<String> variantCombinationImagePaths = const [],
+    List<String> variantValueImagePaths = const [],
+    List<String?> variantValueImageKeysDebug = const [],
     int? initialSimpleStock,
   }) async {
     final res = await api.createProduct(
       productData: productData,
       imagePaths: imagePaths,
+      variantCombinationImagePaths: variantCombinationImagePaths,
+      variantValueImagePaths: variantValueImagePaths,
+      variantValueImageKeysDebug: variantValueImageKeysDebug,
     );
     // Si produit simple avec stock initial explicite et ID retourné, synchroniser le stock
     if (initialSimpleStock != null && initialSimpleStock >= 0 && res != null) {

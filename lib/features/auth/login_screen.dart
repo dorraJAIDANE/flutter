@@ -598,18 +598,50 @@ class _LoginScreenState extends State<LoginScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Image.asset(
-                            'assets/images/logoXFY.png',
-                            height: 36,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) => const Text(
-                              'xfy.',
-                              style: TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.w900,
-                                color: _navyPrimary,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _navyPrimary.withValues(alpha: 0.22),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: Image.asset(
+                                  'assets/images/logoXFY.png',
+                                  width: 42,
+                                  height: 42,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const SizedBox(),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 9),
+                              RichText(
+                                text: const TextSpan(
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    color: _navyPrimary,
+                                    letterSpacing: -0.6,
+                                  ),
+                                  children: [
+                                    TextSpan(text: 'xfy'),
+                                    TextSpan(
+                                      text: '.',
+                                      style: TextStyle(color: Color(0xFFFF6B35)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                           _PulsingWebBadge(animation: _ambientCtrl),
                         ],

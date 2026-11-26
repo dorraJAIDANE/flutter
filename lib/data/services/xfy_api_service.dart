@@ -783,11 +783,15 @@ class XfyApiService {
     return [];
   }
 
-  /// Crée un produit via `POST /api/produits` (multipart `produit` + `images`),
+  /// Crée un produit via `POST /api/produits` (multipart `produit` + `images` +
+  /// `variantCombinationImages` + `variantValueImages` + `variantValueImageKeysDebug`),
   /// 100 % aligné sur `AddProduitComponent.onSubmit()` du Web XFY.
   Future<Map<String, dynamic>?> createProduct({
     required Map<String, dynamic> productData,
     required List<String> imagePaths,
+    List<String> variantCombinationImagePaths = const [],
+    List<String> variantValueImagePaths = const [],
+    List<String?> variantValueImageKeysDebug = const [],
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}/produits');
     final request = http.MultipartRequest('POST', uri);
@@ -795,14 +799,27 @@ class XfyApiService {
       request.headers['Authorization'] = 'Bearer $_token';
     }
     request.fields['produit'] = jsonEncode(productData);
-    request.fields['variantValueImageKeysDebug'] = '[]';
+    request.fields['variantValueImageKeysDebug'] =
+        jsonEncode(variantValueImageKeysDebug);
 
     for (final path in imagePaths) {
       if (path.trim().isEmpty) continue;
       request.files.add(await http.MultipartFile.fromPath('images', path));
     }
+    for (final path in variantCombinationImagePaths) {
+      if (path.trim().isEmpty) continue;
+      request.files.add(
+        await http.MultipartFile.fromPath('variantCombinationImages', path),
+      );
+    }
+    for (final path in variantValueImagePaths) {
+      if (path.trim().isEmpty) continue;
+      request.files.add(
+        await http.MultipartFile.fromPath('variantValueImages', path),
+      );
+    }
 
-    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final streamed = await request.send().timeout(const Duration(seconds: 75));
     final res = await http.Response.fromStream(streamed);
     final decoded = _decodeBody(res);
 
@@ -816,6 +833,80 @@ class XfyApiService {
       _extractErrorMessage(res, decoded),
       statusCode: res.statusCode,
     );
+  }
+
+  /// Upload d'images marketing produit (`POST /api/produits/marketing-images/upload`).
+  Future<List<String>> uploadMarketingImages(List<String> filePaths) async {
+    if (filePaths.isEmpty) return const [];
+    final uri = Uri.parse('${ApiConstants.baseUrl}/produits/marketing-images/upload');
+    final request = http.MultipartRequest('POST', uri);
+    if (_token != null && _token!.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $_token';
+    }
+    for (final path in filePaths) {
+      if (path.trim().isEmpty) continue;
+      request.files.add(await http.MultipartFile.fromPath('files', path));
+    }
+    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final res = await http.Response.fromStream(streamed);
+    final decoded = _decodeBody(res);
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      if (decoded is Map && decoded['urls'] is List) {
+        return (decoded['urls'] as List)
+            .map((e) => e.toString())
+            .where((s) => s.trim().isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+    throw ApiException(
+      _extractErrorMessage(res, decoded),
+      statusCode: res.statusCode,
+    );
+  }
+
+  /// Lance un job IA asynchrone de génération d'images marketing (`POST /api/produits/marketing-images/generate-async`).
+  Future<Map<String, dynamic>> startMarketingImagesJob({
+    required Map<String, dynamic> config,
+    List<String> productPhotoPaths = const [],
+  }) async {
+    final uri = Uri.parse(
+      '${ApiConstants.baseUrl}/produits/marketing-images/generate-async',
+    );
+    final request = http.MultipartRequest('POST', uri);
+    if (_token != null && _token!.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $_token';
+    }
+    request.fields['config'] = jsonEncode(config);
+    for (final path in productPhotoPaths) {
+      if (path.trim().isEmpty) continue;
+      request.files.add(
+        await http.MultipartFile.fromPath('productPhotos', path),
+      );
+    }
+    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final res = await http.Response.fromStream(streamed);
+    final decoded = _decodeBody(res);
+    if (res.statusCode >= 200 && res.statusCode < 300 && decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
+    throw ApiException(
+      _extractErrorMessage(res, decoded),
+      statusCode: res.statusCode,
+    );
+  }
+
+  /// Suit l'état d'un job IA d'images marketing (`GET /api/produits/marketing-images/jobs/{jobId}`).
+  Future<Map<String, dynamic>> getMarketingGenerationJobStatus(
+    String jobId,
+  ) async {
+    final data = await _get(
+      '/produits/marketing-images/jobs/${Uri.encodeComponent(jobId)}',
+    );
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return const {};
   }
 
   // ---------------- CHATBOT IA XFY ----------------

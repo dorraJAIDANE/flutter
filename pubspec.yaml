@@ -1,7 +1,7 @@
 name: xfy_mobile
 description: "XFY — Application mobile vendeur e-commerce Tunisie."
 publish_to: 'none'
-version: 1.6.0+10
+version: 1.6.1+11
 
 environment:
   sdk: ^3.14.0
@@ -32,9 +32,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  remove_alpha_ios: true
   image_path: "assets/images/logoXFY_icon.png"
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/logoXFY_icon.png"
+  adaptive_icon_background: "#02020A"
+  adaptive_icon_foreground: "assets/images/logoXFY_adaptive_fg.png"
 
 flutter:
   uses-material-design: true
