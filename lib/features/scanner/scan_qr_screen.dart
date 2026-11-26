@@ -568,9 +568,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
                         ),
                       ),
                       StatusBadge(
-                        status: o.normalizedStatus == 'pas_de_reponse'
-                            ? 'pas_de_reponse'
-                            : o.unifiedStatus,
+                        status: o.normalizedStatus,
                         compact: true,
                       ),
                     ],
@@ -752,9 +750,7 @@ class _ScanQrScreenState extends State<ScanQrScreen> {
                       ),
                     ),
                     StatusBadge(
-                      status: order.normalizedStatus == 'pas_de_reponse'
-                          ? 'pas_de_reponse'
-                          : order.unifiedStatus,
+                      status: order.normalizedStatus,
                     ),
                   ],
                 ),

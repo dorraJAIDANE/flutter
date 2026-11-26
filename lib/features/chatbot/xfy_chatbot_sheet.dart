@@ -531,29 +531,36 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
         return SafeArea(
           child: Column(
             children: [
-              // Header Bot IA
+              // Header Assistant IA — 100 % identique au Web (`.chat-header`)
               Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                padding: const EdgeInsets.fromLTRB(18, 12, 8, 12),
                 decoration: const BoxDecoration(
-                  gradient: XfyColors.statsGradient,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF5A8DDE), Color(0xFF4A90E2)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 11,
+                      height: 11,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.smart_toy_rounded,
-                        color: Colors.white,
-                        size: 22,
+                        color: const Color(0xFF2ECC71),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF2ECC71).withValues(alpha: 0.7),
+                            blurRadius: 5,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -562,48 +569,21 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
                             AppL10n.t('bot_title'),
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 16.5,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                          Row(
-                            children: [
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF4ADE80),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  _modeBadgeLabel(),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          Text(
+                            _modeBadgeLabel(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.88),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Changer de mode',
-                      onPressed: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _session.pushModePrompt());
-                        _scrollToBottom();
-                      },
-                      icon: const Icon(
-                        Icons.apps_rounded,
-                        color: Colors.white,
                       ),
                     ),
                     IconButton(
@@ -616,6 +596,7 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
                       icon: const Icon(
                         Icons.refresh_rounded,
                         color: Colors.white,
+                        size: 21,
                       ),
                     ),
                     IconButton(
@@ -623,16 +604,17 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
                       icon: const Icon(
                         Icons.close_rounded,
                         color: Colors.white,
+                        size: 22,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Liste des messages
+              // Liste des messages — fond `#FAFAFA` exact Web
               Expanded(
                 child: Container(
-                  color: XfyColors.canvas,
+                  color: const Color(0xFFFAFAFA),
                   child: ListView.builder(
                     controller: _scrollCtrl,
                     padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -647,11 +629,11 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
                 ),
               ),
 
-              // Zone de saisie & pièces jointes
+              // Zone de saisie & pièces jointes — barre Messenger exacte Web (`.input-area`)
               Container(
                 decoration: const BoxDecoration(
-                  color: XfyColors.surface,
-                  border: Border(top: BorderSide(color: XfyColors.border)),
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
                 ),
                 padding: EdgeInsets.fromLTRB(
                   12,
@@ -663,23 +645,39 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_session.selectedImages.isNotEmpty) ...[
-                      SizedBox(
-                        height: 68,
+                      Container(
+                        height: 80,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F2F5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: _session.selectedImages.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                          separatorBuilder: (_, _) => const SizedBox(width: 10),
                           itemBuilder: (_, idx) {
                             final file = _session.selectedImages[idx];
                             return Stack(
+                              clipBehavior: Clip.none,
                               children: [
                                 Container(
                                   width: 64,
                                   height: 64,
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(10),
-                                    border:
-                                        Border.all(color: XfyColors.border),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.12),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
                                   clipBehavior: Clip.antiAlias,
                                   child: Image.file(
@@ -690,17 +688,22 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
                                   ),
                                 ),
                                 Positioned(
-                                  top: 2,
-                                  right: 2,
+                                  top: -5,
+                                  right: -5,
                                   child: GestureDetector(
                                     onTap: () => setState(() =>
                                         _session.selectedImages.removeAt(idx)),
                                     child: Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.black87,
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.65),
                                         shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 1.8,
+                                        ),
                                       ),
                                       child: const Icon(
                                         Icons.close_rounded,
@@ -720,56 +723,147 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
                     if (canInput)
                       Row(
                         children: [
-                          if (_session.chatState != 'support') ...[
-                            IconButton(
-                              tooltip: 'Galerie (captures)',
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => _pickImages(fromCamera: false),
-                              icon: const Icon(
-                                Icons.photo_library_outlined,
-                                color: XfyColors.primaryVibrant,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Caméra',
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => _pickImages(fromCamera: true),
-                              icon: const Icon(
-                                Icons.photo_camera_outlined,
-                                color: XfyColors.primaryVibrant,
-                              ),
-                            ),
-                          ],
                           Expanded(
-                            child: TextField(
-                              controller: _inputCtrl,
-                              minLines: 1,
-                              maxLines: 3,
-                              textInputAction: TextInputAction.send,
-                              onSubmitted: (_) => _onSubmit(),
-                              decoration: InputDecoration(
-                                hintText: _session.chatState == 'support'
-                                    ? 'Écrivez votre message au support...'
-                                    : 'Écrivez ou joignez des captures...',
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F2F5),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFE0E0E0),
                                 ),
-                                fillColor: XfyColors.canvas,
+                              ),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Changer de mode',
+                                    constraints: const BoxConstraints(
+                                      minWidth: 34,
+                                      minHeight: 34,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    onPressed: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => _session.pushModePrompt());
+                                      _scrollToBottom();
+                                    },
+                                    icon: const Icon(
+                                      Icons.more_vert_rounded,
+                                      color: Color(0xFF8A8D91),
+                                      size: 21,
+                                    ),
+                                  ),
+                                  if (_session.chatState != 'support') ...[
+                                    IconButton(
+                                      tooltip: 'Joindre une image',
+                                      constraints: const BoxConstraints(
+                                        minWidth: 34,
+                                        minHeight: 34,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      onPressed: _isLoading
+                                          ? null
+                                          : () =>
+                                              _pickImages(fromCamera: false),
+                                      icon: const Icon(
+                                        Icons.attach_file_rounded,
+                                        color: Color(0xFF4A90E2),
+                                        size: 21,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Caméra',
+                                      constraints: const BoxConstraints(
+                                        minWidth: 34,
+                                        minHeight: 34,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      onPressed: _isLoading
+                                          ? null
+                                          : () => _pickImages(fromCamera: true),
+                                      icon: const Icon(
+                                        Icons.photo_camera_outlined,
+                                        color: Color(0xFF4A90E2),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ],
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _inputCtrl,
+                                      minLines: 1,
+                                      maxLines: 3,
+                                      textInputAction: TextInputAction.send,
+                                      onSubmitted: (_) => _onSubmit(),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF333333),
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: _session.chatState ==
+                                                'support'
+                                            ? 'Écrivez votre message pour le support...'
+                                            : 'Écrivez votre message...',
+                                        hintStyle: const TextStyle(
+                                          color: Color(0xFF8A8D91),
+                                          fontSize: 13.5,
+                                        ),
+                                        border: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                        focusedBorder: InputBorder.none,
+                                        filled: false,
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 9,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          IconButton.filled(
-                            style: IconButton.styleFrom(
-                              backgroundColor: XfyColors.primaryVibrant,
-                              foregroundColor: Colors.white,
-                              fixedSize: const Size(44, 44),
+                          Material(
+                            color: Colors.transparent,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: _isLoading ? null : _onSubmit,
+                              child: Ink(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF4A90E2),
+                                      Color(0xFF357ABD),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF4A90E2)
+                                          .withValues(alpha: 0.32),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.send_rounded,
+                                  color: Colors.white,
+                                  size: 19,
+                                ),
+                              ),
                             ),
-                            onPressed: _isLoading ? null : _onSubmit,
-                            icon: const Icon(Icons.send_rounded, size: 20),
                           ),
                         ],
                       )
@@ -779,22 +873,27 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
                         runSpacing: 8,
                         alignment: WrapAlignment.center,
                         children: XfyChatbotSession.mainChoices.map((c) {
-                          return ActionChip(
-                            avatar: Icon(
-                              c.icon,
-                              size: 16,
-                              color: XfyColors.primaryVibrant,
+                          return OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF007BFF),
+                              side: const BorderSide(color: Color(0xFF007BFF)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              minimumSize: const Size(0, 36),
                             ),
-                            label: Text(
+                            onPressed: () => _onChoiceSelected(c),
+                            child: Text(
                               c.label,
                               style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
                               ),
                             ),
-                            backgroundColor: XfyColors.primarySoft,
-                            side: BorderSide.none,
-                            onPressed: () => _onChoiceSelected(c),
                           );
                         }).toList(),
                       ),
@@ -811,140 +910,191 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
   Widget _buildMessageBubble(XfyBotMessage msg) {
     final isBot = msg.isBot;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment:
             isBot ? MainAxisAlignment.start : MainAxisAlignment.end,
         children: [
-          if (isBot) ...[
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                gradient: XfyColors.statsGradient,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.smart_toy_rounded,
-                size: 17,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isBot ? XfyColors.surface : XfyColors.primaryVibrant,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(isBot ? 4 : 16),
-                  topRight: Radius.circular(isBot ? 16 : 4),
-                  bottomLeft: const Radius.circular(16),
-                  bottomRight: const Radius.circular(16),
-                ),
-                border: isBot ? Border.all(color: XfyColors.border) : null,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.82,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (msg.localImagePath != null)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.file(
-                        File(msg.localImagePath!),
-                        width: 190,
-                        height: 190,
-                        fit: BoxFit.cover,
-                        cacheWidth: 320,
-                      ),
-                    ),
-                  if (msg.lines.isNotEmpty)
-                    ...msg.lines.map(
-                      (line) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          line,
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            height: 1.38,
-                            color: isBot ? XfyColors.ink : Colors.white,
-                            fontWeight:
-                                line.startsWith('✨') || line.startsWith('—')
-                                    ? FontWeight.w800
-                                    : FontWeight.w500,
-                          ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                decoration: BoxDecoration(
+                  color: isBot ? Colors.white : null,
+                  gradient: isBot
+                      ? null
+                      : const LinearGradient(
+                          colors: [Color(0xFF4A90E2), Color(0xFF357ABD)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ),
-                    ),
-                  if (msg.choices != null && msg.choices!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: msg.choices!.map((c) {
-                        return FilledButton.tonalIcon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: XfyColors.primarySoft,
-                            foregroundColor: XfyColors.primaryDark,
-                            minimumSize: const Size(0, 38),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                          ),
-                          onPressed: () => _onChoiceSelected(c),
-                          icon: Icon(c.icon, size: 16),
-                          label: Text(
-                            c.label,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(18),
+                    topRight: const Radius.circular(18),
+                    bottomLeft: Radius.circular(isBot ? 5 : 18),
+                    bottomRight: Radius.circular(isBot ? 18 : 5),
+                  ),
+                  border:
+                      isBot ? Border.all(color: const Color(0xFFE8E8E8)) : null,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
-                  if (msg.messengerUrl != null) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF0084FF),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(0, 38),
-                          ),
-                          onPressed: () => XfyFormatters.launchExternalWeb(
-                            msg.messengerUrl!,
-                          ),
-                          icon: const Icon(Icons.message_rounded, size: 16),
-                          label: const Text('Ouvrir Messenger'),
-                        ),
-                        if (msg.copyableText != null)
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 38),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isBot) ...[
+                      const Padding(
+                        padding: EdgeInsets.only(top: 1, right: 8),
+                        child: Text('🤖', style: TextStyle(fontSize: 19)),
+                      ),
+                    ],
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (msg.localImagePath != null)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                File(msg.localImagePath!),
+                                width: 180,
+                                height: 180,
+                                fit: BoxFit.cover,
+                                cacheWidth: 320,
+                              ),
                             ),
-                            onPressed: () {
-                              Clipboard.setData(
-                                ClipboardData(text: msg.copyableText!),
-                              );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Message copié')),
-                              );
-                            },
-                            icon: const Icon(Icons.copy_rounded, size: 15),
-                            label: const Text('Copier'),
-                          ),
-                      ],
+                          if (msg.lines.isNotEmpty)
+                            ...msg.lines.map(
+                              (line) => Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  line,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    height: 1.45,
+                                    color: isBot
+                                        ? const Color(0xFF333333)
+                                        : Colors.white,
+                                    fontWeight: line.startsWith('✨') ||
+                                            line.startsWith('—')
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (msg.choices != null &&
+                              msg.choices!.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: msg.choices!.map((c) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF007BFF),
+                                      side: const BorderSide(
+                                        color: Color(0xFF007BFF),
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 15,
+                                        vertical: 9,
+                                      ),
+                                      minimumSize: const Size(double.infinity, 38),
+                                    ),
+                                    onPressed: () => _onChoiceSelected(c),
+                                    child: Text(
+                                      c.label,
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                          if (msg.messengerUrl != null) ...[
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0084FF),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    minimumSize: const Size(0, 38),
+                                  ),
+                                  onPressed: () =>
+                                      XfyFormatters.launchExternalWeb(
+                                    msg.messengerUrl!,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.message_rounded,
+                                    size: 16,
+                                  ),
+                                  label: const Text('Ouvrir Messenger'),
+                                ),
+                                if (msg.copyableText != null)
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF0084FF),
+                                      side: const BorderSide(
+                                        color: Color(0xFF0084FF),
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      minimumSize: const Size(0, 38),
+                                    ),
+                                    onPressed: () {
+                                      Clipboard.setData(
+                                        ClipboardData(text: msg.copyableText!),
+                                      );
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Message copié'),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.copy_rounded,
+                                      size: 15,
+                                    ),
+                                    label: const Text('Copier'),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -955,48 +1105,48 @@ class _XfyChatbotSheetState extends State<XfyChatbotSheet> {
 
   Widget _buildLoadingBubble() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
           Container(
-            width: 30,
-            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: XfyColors.statsGradient,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.smart_toy_rounded,
-              size: 17,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: XfyColors.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: XfyColors.border),
+              color: const Color(0xFFF8F9FA),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomRight: Radius.circular(18),
+                bottomLeft: Radius.circular(5),
+              ),
+              border: Border.all(color: const Color(0xFFE3F2FD), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Text('🤖', style: TextStyle(fontSize: 19)),
+                SizedBox(width: 8),
                 SizedBox(
-                  width: 15,
-                  height: 15,
+                  width: 14,
+                  height: 14,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: XfyColors.primaryVibrant,
+                    color: Color(0xFF4A90E2),
                   ),
                 ),
-                SizedBox(width: 10),
+                SizedBox(width: 8),
                 Text(
-                  '🧠 Analyse IA en cours...',
+                  '🧠 Analyse en cours...',
                   style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: XfyColors.ink,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF4A90E2),
                   ),
                 ),
               ],

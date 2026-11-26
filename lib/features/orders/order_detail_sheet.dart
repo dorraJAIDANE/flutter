@@ -282,9 +282,7 @@ class _OrderDetailSheetState extends State<OrderDetailSheet> {
                       ),
                     ),
                     StatusBadge(
-                      status: _order.normalizedStatus == 'pas_de_reponse'
-                          ? 'pas_de_reponse'
-                          : _order.unifiedStatus,
+                      status: _order.normalizedStatus,
                     ),
                     IconButton(
                       tooltip: 'Modifier',
@@ -765,7 +763,7 @@ class _OrderDetailSheetState extends State<OrderDetailSheet> {
 
                     const SizedBox(height: 18),
 
-                    // 6. Change Status Pills
+                    // 6. Change Status Pills (exact Web XFY statutOptions)
                     const Text(
                       'Changer le statut XFY',
                       style: TextStyle(
@@ -775,35 +773,39 @@ class _OrderDetailSheetState extends State<OrderDetailSheet> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: XfyFormatters.statuses.map((meta) {
-                        final active = _order.normalizedStatus == meta.key;
-                        return ChoiceChip(
-                          selected: active,
-                          showCheckmark: false,
-                          avatar: Icon(
-                            meta.icon,
-                            size: 16,
-                            color: active ? Colors.white : meta.color,
-                          ),
-                          label: Text(meta.label),
-                          selectedColor: meta.color,
-                          backgroundColor: meta.bgColor,
-                          side: BorderSide(
-                            color: active ? meta.color : Colors.transparent,
-                          ),
-                          labelStyle: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: active ? Colors.white : meta.color,
-                          ),
-                          onSelected:
-                              _isSaving ? null : (_) => _updateStatus(meta.key),
-                        );
-                      }).toList(),
-                    ),
+                    if (_order.normalizedStatus == 'retournee')
+                      const StatusBadge(status: 'retournee')
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: XfyFormatters.selectableStatuses.map((meta) {
+                          final active = _order.normalizedStatus == meta.key;
+                          return ChoiceChip(
+                            selected: active,
+                            showCheckmark: false,
+                            avatar: Icon(
+                              meta.icon,
+                              size: 16,
+                              color: active ? Colors.white : meta.color,
+                            ),
+                            label: Text(meta.label),
+                            selectedColor: meta.color,
+                            backgroundColor: meta.bgColor,
+                            side: BorderSide(
+                              color: active ? meta.color : Colors.transparent,
+                            ),
+                            labelStyle: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: active ? Colors.white : meta.color,
+                            ),
+                            onSelected: _isSaving
+                                ? null
+                                : (_) => _updateStatus(meta.key),
+                          );
+                        }).toList(),
+                      ),
 
                     const SizedBox(height: 20),
 

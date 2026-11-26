@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_l10n.dart';
-import '../theme/app_theme.dart';
 
 class OrderStatusMeta {
   const OrderStatusMeta({
@@ -22,55 +21,61 @@ class OrderStatusMeta {
 class XfyFormatters {
   XfyFormatters._();
 
-  static List<OrderStatusMeta> get statuses => [
+  /// Les 6 statuts XFY sélectionnables — ordre, libellés et couleurs 100 % IDENTIQUES au Web (`order-list.component.ts/.scss`).
+  static List<OrderStatusMeta> get selectableStatuses => [
         OrderStatusMeta(
           key: 'en_cours',
           label: AppL10n.t('status_en_cours'),
-          color: XfyColors.amber,
-          bgColor: XfyColors.amberSoft,
+          color: const Color(0xFF92400E),
+          bgColor: const Color(0xFFFEF3C7),
           icon: Icons.schedule_rounded,
-        ),
-        OrderStatusMeta(
-          key: 'confirmee',
-          label: AppL10n.t('status_confirmee'),
-          color: XfyColors.indigo,
-          bgColor: XfyColors.indigoSoft,
-          icon: Icons.check_circle_outline_rounded,
         ),
         OrderStatusMeta(
           key: 'pas_de_reponse',
           label: AppL10n.t('status_pas_de_reponse'),
-          color: const Color(0xFFD97706),
+          color: const Color(0xFF92400E),
           bgColor: const Color(0xFFFEF3C7),
           icon: Icons.phone_missed_rounded,
         ),
         OrderStatusMeta(
+          key: 'confirmee',
+          label: AppL10n.t('status_confirmee'),
+          color: const Color(0xFF1E40AF),
+          bgColor: const Color(0xFFDBEAFE),
+          icon: Icons.check_circle_outline_rounded,
+        ),
+        OrderStatusMeta(
           key: 'traitee',
           label: AppL10n.t('status_traitee'),
-          color: XfyColors.violet,
-          bgColor: XfyColors.violetSoft,
-          icon: Icons.local_shipping_outlined,
+          color: const Color(0xFF233B8F),
+          bgColor: const Color(0xFFE7EDFF),
+          icon: Icons.inventory_2_outlined,
         ),
         OrderStatusMeta(
           key: 'encaissee',
           label: AppL10n.t('status_encaissee'),
-          color: XfyColors.emerald,
-          bgColor: XfyColors.emeraldSoft,
+          color: const Color(0xFF065F46),
+          bgColor: const Color(0xFFD1FAE5),
           icon: Icons.verified_rounded,
-        ),
-        OrderStatusMeta(
-          key: 'retournee',
-          label: AppL10n.t('status_retournee'),
-          color: XfyColors.rose,
-          bgColor: XfyColors.roseSoft,
-          icon: Icons.assignment_return_outlined,
         ),
         OrderStatusMeta(
           key: 'annulee',
           label: AppL10n.t('status_annulee'),
-          color: const Color(0xFF64748B),
-          bgColor: const Color(0xFFF1F5F9),
+          color: const Color(0xFF991B1B),
+          bgColor: const Color(0xFFFEE2E2),
           icon: Icons.cancel_outlined,
+        ),
+      ];
+
+  /// Tous les statuts XFY (les 6 sélectionnables + `retournee` en lecture seule comme sur le Web).
+  static List<OrderStatusMeta> get statuses => [
+        ...selectableStatuses,
+        OrderStatusMeta(
+          key: 'retournee',
+          label: AppL10n.t('status_retournee'),
+          color: const Color(0xFF7F1D1D),
+          bgColor: const Color(0xFFFECACA),
+          icon: Icons.assignment_return_outlined,
         ),
       ];
 

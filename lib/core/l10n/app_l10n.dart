@@ -82,14 +82,14 @@ class AppL10n {
     'notif_test_body':
         'Sonnerie Money XFY — Vos alertes de commandes fonctionnent !',
 
-    // Statuts commandes
+    // Statuts commandes (identiques au Web XFY)
     'status_en_cours': 'En cours',
-    'status_confirmee': 'Confirmée',
     'status_pas_de_reponse': 'Pas de réponse',
-    'status_traitee': 'En livraison',
-    'status_encaissee': 'Livrée / Encaissée',
-    'status_retournee': 'Retournée',
+    'status_confirmee': 'Confirmée',
+    'status_traitee': 'Traitée',
+    'status_encaissee': 'Encaissée',
     'status_annulee': 'Annulée',
+    'status_retournee': 'Retournée',
 
     // Login
     'login_badge': 'Plateforme active',
@@ -369,14 +369,14 @@ class AppL10n {
     'notif_test_body':
         'XFY Money ringtone — Your order alerts are working!',
 
-    // Order statuses
+    // Order statuses (aligned with Web XFY)
     'status_en_cours': 'Pending',
-    'status_confirmee': 'Confirmed',
     'status_pas_de_reponse': 'No answer',
-    'status_traitee': 'In delivery',
-    'status_encaissee': 'Delivered / Paid',
-    'status_retournee': 'Returned',
+    'status_confirmee': 'Confirmed',
+    'status_traitee': 'Processed',
+    'status_encaissee': 'Paid / Collected',
     'status_annulee': 'Cancelled',
+    'status_retournee': 'Returned',
 
     // Login
     'login_badge': 'Active platform',
@@ -650,14 +650,14 @@ class AppL10n {
     'notif_new_order': 'طلب جديد',
     'notif_test_body': 'رنة المال XFY — تنبيهات الطلبات تعمل بنجاح!',
 
-    // Order statuses
+    // Order statuses (aligned with Web XFY)
     'status_en_cours': 'قيد الانتظار',
-    'status_confirmee': 'مؤكدة',
     'status_pas_de_reponse': 'لا يوجد رد',
-    'status_traitee': 'قيد التوصيل',
-    'status_encaissee': 'تم التوصيل / الدفع',
-    'status_retournee': 'مرتجعة',
+    'status_confirmee': 'مؤكدة',
+    'status_traitee': 'تمت المعالجة',
+    'status_encaissee': 'مدفوعة / محصّلة',
     'status_annulee': 'ملغاة',
+    'status_retournee': 'مرتجعة',
 
     // Login
     'login_badge': 'المنصة نشطة',

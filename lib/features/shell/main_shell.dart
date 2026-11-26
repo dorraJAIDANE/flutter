@@ -174,71 +174,27 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
                 ),
-              // Bouton flottant Assistant IA (Bot XFY) accessible depuis tous les écrans
-              // Placé en bas au début (start) pour ne jamais chevaucher les FAB "+ Nouveau / + Ajouter"
-              PositionedDirectional(
-                start: 14,
-                bottom: 14,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () {
-                      HapticFeedback.mediumImpact();
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: XfyColors.surface,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(24),
-                          ),
+              // Bulle flottante Assistant IA — Design 100 % identique au Web (`.chatbot-toggle`)
+              AnimatedPositionedDirectional(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                end: 16,
+                bottom: (activeIndex == 1 || activeIndex == 3) ? 84 : 18,
+                child: _WebChatbotToggleBubble(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.white,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(20),
                         ),
-                        builder: (_) => XfyChatbotSheet(state: state),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 13,
-                        vertical: 10,
                       ),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4F46E5), Color(0xFFFF6B35)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF4F46E5)
-                                .withValues(alpha: 0.34),
-                            blurRadius: 12,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.smart_toy_rounded,
-                            color: Colors.white,
-                            size: 19,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            AppL10n.t('bot_fab_label'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                      builder: (_) => XfyChatbotSheet(state: state),
+                    );
+                  },
                 ),
               ),
             ],
@@ -533,4 +489,164 @@ class _NavItem extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Bulle flottante Chatbot 100 % identique à `.chatbot-toggle` du Web XFY :
+/// • Cercle bleu dégradé `#4A90E2 → #357ABD` (60×60)
+/// • Halo pulsant bleu (`rgba(74, 144, 226, 0.4)`, cycle 2,5 s)
+/// • Flottement vertical doux (`0 → -6 px`, cycle 3 s)
+/// • Icône bulle de message blanche à 3 lignes identique au SVG Web
+class _WebChatbotToggleBubble extends StatefulWidget {
+  const _WebChatbotToggleBubble({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  State<_WebChatbotToggleBubble> createState() =>
+      _WebChatbotToggleBubbleState();
+}
+
+class _WebChatbotToggleBubbleState extends State<_WebChatbotToggleBubble>
+    with TickerProviderStateMixin {
+  late final AnimationController _floatCtrl;
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _floatY;
+  late final Animation<double> _pulseScale;
+  late final Animation<double> _pulseOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _floatCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _floatY = Tween<double>(begin: 0, end: -6).animate(
+      CurvedAnimation(parent: _floatCtrl, curve: Curves.easeInOut),
+    );
+
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1250),
+    )..repeat(reverse: true);
+    _pulseScale = Tween<double>(begin: 1.0, end: 1.36).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+    _pulseOpacity = Tween<double>(begin: 0.45, end: 0.14).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _floatCtrl.dispose();
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_floatCtrl, _pulseCtrl]),
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(0, _floatY.value),
+            child: SizedBox(
+              width: 68,
+              height: 68,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  Transform.scale(
+                    scale: _pulseScale.value,
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF4A90E2)
+                            .withValues(alpha: _pulseOpacity.value),
+                      ),
+                    ),
+                  ),
+                  child!,
+                ],
+              ),
+            ),
+          );
+        },
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: widget.onTap,
+            child: Ink(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4A90E2), Color(0xFF357ABD)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4A90E2).withValues(alpha: 0.36),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: CustomPaint(
+                  size: const Size(27, 27),
+                  painter: _WebChatBubbleIconPainter(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WebChatBubbleIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sx = size.width / 24.0;
+    final sy = size.height / 24.0;
+
+    final path = Path()..fillType = PathFillType.evenOdd;
+
+    // Bulle principale avec coins arrondis et pointe en bas à gauche (SVG Web exact)
+    path.moveTo(4 * sx, 2 * sy);
+    path.lineTo(20 * sx, 2 * sy);
+    path.quadraticBezierTo(22 * sx, 2 * sy, 22 * sx, 4 * sy);
+    path.lineTo(22 * sx, 16 * sy);
+    path.quadraticBezierTo(22 * sx, 18 * sy, 20 * sx, 18 * sy);
+    path.lineTo(6 * sx, 18 * sy);
+    path.lineTo(2 * sx, 22 * sy);
+    path.lineTo(2 * sx, 4 * sy);
+    path.quadraticBezierTo(2 * sx, 2 * sy, 4 * sx, 2 * sy);
+    path.close();
+
+    // 3 lignes de texte découpées à l'intérieur (identiques au SVG Web)
+    path.addRect(Rect.fromLTWH(6 * sx, 6.2 * sy, 12 * sx, 1.8 * sy));
+    path.addRect(Rect.fromLTWH(6 * sx, 9.6 * sy, 12 * sx, 1.8 * sy));
+    path.addRect(Rect.fromLTWH(6 * sx, 13.0 * sy, 8 * sx, 1.8 * sy));
+
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

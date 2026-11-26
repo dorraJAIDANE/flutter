@@ -2063,9 +2063,7 @@ class _RecentOrderTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 StatusBadge(
-                  status: order.normalizedStatus == 'pas_de_reponse'
-                      ? 'pas_de_reponse'
-                      : order.unifiedStatus,
+                  status: order.normalizedStatus,
                   compact: true,
                 ),
               ],

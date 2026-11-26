@@ -141,11 +141,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
         if (q.isNotEmpty && !o.searchBlob.contains(q)) continue;
 
         filtered.add(o);
-        final uStatus = o.unifiedStatus;
-        counts[uStatus] = (counts[uStatus] ?? 0) + 1;
-        if (o.normalizedStatus == 'pas_de_reponse') {
-          counts['pas_de_reponse'] = (counts['pas_de_reponse'] ?? 0) + 1;
-        }
+        final xfyStatus = o.normalizedStatus;
+        counts[xfyStatus] = (counts[xfyStatus] ?? 0) + 1;
       }
 
       counts['all'] = filtered.length;
@@ -160,13 +157,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       final List<OrderModel> vis;
       if (_selectedStatus == 'all') {
         vis = _cachedDateFiltered;
-      } else if (_selectedStatus == 'pas_de_reponse') {
-        vis = _cachedDateFiltered
-            .where((o) => o.normalizedStatus == 'pas_de_reponse')
-            .toList();
       } else {
         vis = _cachedDateFiltered
-            .where((o) => o.unifiedStatus == _selectedStatus)
+            .where((o) => o.normalizedStatus == _selectedStatus)
             .toList();
       }
       double sum = 0;
@@ -190,6 +183,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   Future<void> _quickChangeStatus(OrderModel order) async {
     HapticFeedback.selectionClick();
+    if (order.normalizedStatus == 'retournee') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Le statut d\'une commande Retournée ne peut pas être modifié.',
+          ),
+        ),
+      );
+      return;
+    }
     final chosen = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) {
@@ -228,7 +231,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                ...XfyFormatters.statuses.map((meta) {
+                ...XfyFormatters.selectableStatuses.map((meta) {
                   final active = order.normalizedStatus == meta.key;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -816,9 +819,7 @@ class _OrderCard extends StatelessWidget {
                         GestureDetector(
                           onTap: onStatusTap,
                           child: StatusBadge(
-                            status: order.normalizedStatus == 'pas_de_reponse'
-                                ? 'pas_de_reponse'
-                                : order.unifiedStatus,
+                            status: order.normalizedStatus,
                           ),
                         ),
                       ],

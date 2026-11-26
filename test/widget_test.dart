@@ -120,6 +120,30 @@ void main() {
     expect(stats.activeClientsCount, 1);
   });
 
+  test('Mobile selectable XFY statuses match exact Web statutOptions order and labels', () {
+    AppL10n.setLanguage('fr');
+    final keys = XfyFormatters.selectableStatuses.map((s) => s.key).toList();
+    final labels = XfyFormatters.selectableStatuses.map((s) => s.label).toList();
+    expect(keys, [
+      'en_cours',
+      'pas_de_reponse',
+      'confirmee',
+      'traitee',
+      'encaissee',
+      'annulee',
+    ]);
+    expect(labels, [
+      'En cours',
+      'Pas de réponse',
+      'Confirmée',
+      'Traitée',
+      'Encaissée',
+      'Annulée',
+    ]);
+    expect(XfyFormatters.statuses.last.key, 'retournee');
+    expect(XfyFormatters.statuses.last.label, 'Retournée');
+  });
+
   test('parseDateRobust handles DD/MM/YYYY, YYYY-MM-DD, space-time, and arrays', () {
     final fr = XfyFormatters.parseDateRobust('24/11/2026 14:35');
     expect(fr?.year, 2026);
