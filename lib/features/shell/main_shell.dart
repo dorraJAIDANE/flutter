@@ -4,6 +4,7 @@ import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/services/order_notification_service.dart';
 import '../../state/app_state.dart';
+import '../chatbot/xfy_chatbot_sheet.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../orders/orders_screen.dart';
 import '../products/products_screen.dart';
@@ -173,6 +174,73 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
                 ),
+              // Bouton flottant Assistant IA (Bot XFY) accessible depuis tous les écrans
+              // Placé en bas au début (start) pour ne jamais chevaucher les FAB "+ Nouveau / + Ajouter"
+              PositionedDirectional(
+                start: 14,
+                bottom: 14,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: XfyColors.surface,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                        ),
+                        builder: (_) => XfyChatbotSheet(state: state),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4F46E5), Color(0xFFFF6B35)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF4F46E5)
+                                .withValues(alpha: 0.34),
+                            blurRadius: 12,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.smart_toy_rounded,
+                            color: Colors.white,
+                            size: 19,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            AppL10n.t('bot_fab_label'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
           bottomNavigationBar: _XfyCenterLogoBottomBar(

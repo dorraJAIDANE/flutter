@@ -40,13 +40,19 @@ class OrderMonitorService : Service() {
         const val KEY_LAST_SEEN_ID = "last_seen_order_id"
         const val KEY_NOTIF_ENABLED = "notif_enabled"
         const val KEY_SOUND_ENABLED = "sound_enabled"
+        const val KEY_SOUND_KEY = "sound_key"
         const val KEY_LANG = "app_lang"
         const val KEY_APP_FOREGROUND = "app_foreground"
         const val KEY_RUNNING = "service_running"
 
+        const val DEFAULT_SOUND_KEY = "shopify_chaching"
+
         const val CHANNEL_STATUS_ID = "xfy_monitor_status_v1"
-        const val CHANNEL_ORDER_SOUND_ID = "xfy_new_orders_money_v3"
-        const val CHANNEL_ORDER_SILENT_ID = "xfy_new_orders_silent_v3"
+        const val CHANNEL_ORDER_SHOPIFY_ID = "xfy_orders_shopify_chaching_v4"
+        const val CHANNEL_ORDER_COINS_ID = "xfy_orders_gold_coins_v4"
+        const val CHANNEL_ORDER_CRYSTAL_ID = "xfy_orders_crystal_bell_v4"
+        const val CHANNEL_ORDER_POP_ID = "xfy_orders_sale_pop_v4"
+        const val CHANNEL_ORDER_SILENT_ID = "xfy_orders_silent_v4"
         const val FOREGROUND_NOTIF_ID = 40001
         const val EXTRA_OPEN_ORDERS = "xfy_open_orders_tab"
 
@@ -56,14 +62,30 @@ class OrderMonitorService : Service() {
         @Volatile
         var isServiceRunning: Boolean = false
 
+        fun channelIdForSoundKey(soundKey: String?): String = when (soundKey) {
+            "gold_coins" -> CHANNEL_ORDER_COINS_ID
+            "crystal_bell" -> CHANNEL_ORDER_CRYSTAL_ID
+            "sale_pop" -> CHANNEL_ORDER_POP_ID
+            else -> CHANNEL_ORDER_SHOPIFY_ID
+        }
+
+        fun rawResForSoundKey(soundKey: String?): Int = when (soundKey) {
+            "gold_coins" -> R.raw.gold_coins
+            "crystal_bell" -> R.raw.crystal_bell
+            "sale_pop" -> R.raw.sale_pop
+            else -> R.raw.shopify_chaching
+        }
+
         fun ensureOrderChannels(context: Context) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            // Nettoyer les anciens canaux v2 pour forcer Android à adopter la nouvelle sonnerie Money
+            // Nettoyer les anciens canaux v2/v3 pour adopter les 4 sonneries v4 (Shopify/Converty par défaut)
             try {
                 nm.deleteNotificationChannel("xfy_new_orders_sound_v2")
                 nm.deleteNotificationChannel("xfy_new_orders_silent_v2")
+                nm.deleteNotificationChannel("xfy_new_orders_money_v3")
+                nm.deleteNotificationChannel("xfy_new_orders_silent_v3")
             } catch (_: Exception) {}
 
             // 1. Canal discret pour l'état "Surveillance active"
@@ -81,26 +103,31 @@ class OrderMonitorService : Service() {
                 nm.createNotificationChannel(statusChannel)
             }
 
-            // 2. Canal haute priorité AVEC la sonnerie Money (`res/raw/money_chime.wav`)
-            if (nm.getNotificationChannel(CHANNEL_ORDER_SOUND_ID) == null) {
-                val soundUri = Uri.parse("android.resource://${context.packageName}/${R.raw.money_chime}")
-                val audioAttrs = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
+            // 2. Les 4 canaux haute priorité (1 canal dédié par sonnerie pour contourner le cache Android)
+            val audioAttrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
 
-                val orderSoundChannel = NotificationChannel(
-                    CHANNEL_ORDER_SOUND_ID,
-                    "Nouvelles commandes XFY (Money)",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Alertes sonores Money instantanées à chaque nouvelle commande reçue"
-                    enableVibration(true)
-                    vibrationPattern = longArrayOf(0, 300, 150, 300)
-                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                    setSound(soundUri, audioAttrs)
+            val soundChannels = listOf(
+                Triple(CHANNEL_ORDER_SHOPIFY_ID, "Commandes XFY • Cha-Ching (Shopify)", R.raw.shopify_chaching),
+                Triple(CHANNEL_ORDER_COINS_ID, "Commandes XFY • Pièces d'or", R.raw.gold_coins),
+                Triple(CHANNEL_ORDER_CRYSTAL_ID, "Commandes XFY • Carillon Crystal", R.raw.crystal_bell),
+                Triple(CHANNEL_ORDER_POP_ID, "Commandes XFY • Succès Pop", R.raw.sale_pop),
+            )
+
+            for ((id, name, rawRes) in soundChannels) {
+                if (nm.getNotificationChannel(id) == null) {
+                    val soundUri = Uri.parse("android.resource://${context.packageName}/$rawRes")
+                    val ch = NotificationChannel(id, name, NotificationManager.IMPORTANCE_HIGH).apply {
+                        description = "Alertes sonores instantanées à chaque nouvelle commande reçue"
+                        enableVibration(true)
+                        vibrationPattern = longArrayOf(0, 300, 150, 300)
+                        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                        setSound(soundUri, audioAttrs)
+                    }
+                    nm.createNotificationChannel(ch)
                 }
-                nm.createNotificationChannel(orderSoundChannel)
             }
 
             // 3. Canal haute priorité SANS sonnerie (si l'utilisateur coupe la sonnerie)
@@ -345,8 +372,10 @@ class OrderMonitorService : Service() {
             piFlags
         )
 
-        val channelId = if (soundEnabled) CHANNEL_ORDER_SOUND_ID else CHANNEL_ORDER_SILENT_ID
-        val soundUri = Uri.parse("android.resource://$packageName/${R.raw.money_chime}")
+        val soundKey = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_SOUND_KEY, DEFAULT_SOUND_KEY) ?: DEFAULT_SOUND_KEY
+        val channelId = if (soundEnabled) channelIdForSoundKey(soundKey) else CHANNEL_ORDER_SILENT_ID
+        val soundUri = Uri.parse("android.resource://$packageName/${rawResForSoundKey(soundKey)}")
 
         val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)

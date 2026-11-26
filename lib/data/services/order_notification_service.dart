@@ -7,25 +7,97 @@ import '../../core/l10n/app_l10n.dart';
 import '../../core/utils/formatters.dart';
 import '../models/order_model.dart';
 
-/// Gère les notifications Android/iOS haute priorité + la sonnerie Money (`money_chime.wav`)
-/// lors de la réception d'une nouvelle commande (sans #ID : uniquement titre + prix).
+/// Définition d'une sonnerie de commande supportée nativement sur Android (res/raw + canal dédié)
+/// et iOS (bundle Xcode + `UNNotificationSound`) ainsi qu'en aperçu in-app (`assets/sounds/`).
+class OrderRingtoneOption {
+  const OrderRingtoneOption({
+    required this.id,
+    required this.rawResource,
+    required this.fileName,
+    required this.androidChannelId,
+    required this.androidChannelName,
+    required this.titleKey,
+    required this.subtitleKey,
+    this.isDefault = false,
+  });
+
+  final String id;
+  final String rawResource;
+  final String fileName;
+  final String androidChannelId;
+  final String androidChannelName;
+  final String titleKey;
+  final String subtitleKey;
+  final bool isDefault;
+}
+
+/// Gère les notifications Android/iOS haute priorité + 4 sonneries au choix :
+/// 1. Cha-Ching Shopify / Converty (par défaut)
+/// 2. Pièces d'or (Cash Drop)
+/// 3. Carillon Crystal
+/// 4. Succès Vente (Pop)
 class OrderNotificationService {
   OrderNotificationService._();
   static final OrderNotificationService instance = OrderNotificationService._();
 
-  // v3 : nouveau canal dédié à la sonnerie Money (`res/raw/money_chime.wav`),
-  // aligné avec `OrderMonitorService.kt` et protégé par `res/raw/keep.xml`.
-  static const _channelSoundId = 'xfy_new_orders_money_v3';
-  static const _channelSoundName = 'Nouvelles commandes XFY (Money)';
-  static const _channelSoundDesc =
-      'Alertes sonores Money instantanées à chaque nouvelle commande reçue';
+  static const String defaultRingtoneId = 'shopify_chaching';
 
-  static const _channelSilentId = 'xfy_new_orders_silent_v3';
+  static const List<OrderRingtoneOption> ringtones = [
+    OrderRingtoneOption(
+      id: 'shopify_chaching',
+      rawResource: 'shopify_chaching',
+      fileName: 'shopify_chaching.wav',
+      androidChannelId: 'xfy_orders_shopify_chaching_v4',
+      androidChannelName: 'Commandes XFY • Cha-Ching (Shopify)',
+      titleKey: 'ringtone_shopify_title',
+      subtitleKey: 'ringtone_shopify_sub',
+      isDefault: true,
+    ),
+    OrderRingtoneOption(
+      id: 'gold_coins',
+      rawResource: 'gold_coins',
+      fileName: 'gold_coins.wav',
+      androidChannelId: 'xfy_orders_gold_coins_v4',
+      androidChannelName: "Commandes XFY • Pièces d'or",
+      titleKey: 'ringtone_coins_title',
+      subtitleKey: 'ringtone_coins_sub',
+    ),
+    OrderRingtoneOption(
+      id: 'crystal_bell',
+      rawResource: 'crystal_bell',
+      fileName: 'crystal_bell.wav',
+      androidChannelId: 'xfy_orders_crystal_bell_v4',
+      androidChannelName: 'Commandes XFY • Carillon Crystal',
+      titleKey: 'ringtone_crystal_title',
+      subtitleKey: 'ringtone_crystal_sub',
+    ),
+    OrderRingtoneOption(
+      id: 'sale_pop',
+      rawResource: 'sale_pop',
+      fileName: 'sale_pop.wav',
+      androidChannelId: 'xfy_orders_sale_pop_v4',
+      androidChannelName: 'Commandes XFY • Succès Pop',
+      titleKey: 'ringtone_pop_title',
+      subtitleKey: 'ringtone_pop_sub',
+    ),
+  ];
+
+  static OrderRingtoneOption resolveRingtone(String? id) {
+    for (final r in ringtones) {
+      if (r.id == id) return r;
+    }
+    return ringtones.first;
+  }
+
+  static const _channelSoundDesc =
+      'Alertes sonores instantanées à chaque nouvelle commande reçue';
+  static const _channelSilentId = 'xfy_orders_silent_v4';
   static const _channelSilentName = 'Nouvelles commandes XFY (Silencieux)';
   static const _channelSilentDesc = 'Alertes visuelles sans sonnerie';
 
   static const _prefNotifEnabled = 'xfy_notif_enabled';
   static const _prefSoundEnabled = 'xfy_notif_sound_enabled';
+  static const _prefSoundKey = 'xfy_notif_sound_key';
   static const _prefBgMonitorEnabled = 'xfy_bg_monitor_enabled';
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -35,8 +107,12 @@ class OrderNotificationService {
   bool _initialized = false;
   bool notificationsEnabled = true;
   bool soundEnabled = true;
+  String selectedRingtoneId = defaultRingtoneId;
   bool backgroundMonitorEnabled = true;
   bool systemPermissionGranted = true;
+
+  OrderRingtoneOption get currentRingtone =>
+      resolveRingtone(selectedRingtoneId);
 
   VoidCallback? onNotificationTapped;
 
@@ -48,6 +124,8 @@ class OrderNotificationService {
     final prefs = await SharedPreferences.getInstance();
     notificationsEnabled = prefs.getBool(_prefNotifEnabled) ?? true;
     soundEnabled = prefs.getBool(_prefSoundEnabled) ?? true;
+    selectedRingtoneId =
+        resolveRingtone(prefs.getString(_prefSoundKey)).id;
     backgroundMonitorEnabled = prefs.getBool(_prefBgMonitorEnabled) ?? true;
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -101,39 +179,47 @@ class OrderNotificationService {
       debugPrint('[OrderNotificationService] permission check error: $e');
     }
 
-    // Supprimer les anciens canaux v2 pour forcer Android à adopter la sonnerie Money v3
-    try {
-      await androidPlugin.deleteNotificationChannel('xfy_new_orders_sound_v2');
-      await androidPlugin.deleteNotificationChannel('xfy_new_orders_silent_v2');
-    } catch (_) {}
+    // Supprimer les anciens canaux v2/v3 pour adopter proprement les 4 sonneries v4
+    for (final oldId in const [
+      'xfy_new_orders_sound_v2',
+      'xfy_new_orders_silent_v2',
+      'xfy_new_orders_money_v3',
+      'xfy_new_orders_silent_v3',
+    ]) {
+      try {
+        await androidPlugin.deleteNotificationChannel(oldId);
+      } catch (_) {}
+    }
 
-    // Canal avec sonnerie Money personnalisée (`res/raw/money_chime.wav`)
-    try {
-      await androidPlugin.createNotificationChannel(
-        const AndroidNotificationChannel(
-          _channelSoundId,
-          _channelSoundName,
-          description: _channelSoundDesc,
-          importance: Importance.max,
-          playSound: true,
-          sound: RawResourceAndroidNotificationSound('money_chime'),
-          enableVibration: true,
-        ),
-      );
-    } catch (e) {
-      debugPrint('[OrderNotificationService] sound channel fallback: $e');
+    // Créer les 4 canaux dédiés (1 par sonnerie)
+    for (final r in ringtones) {
       try {
         await androidPlugin.createNotificationChannel(
-          const AndroidNotificationChannel(
-            _channelSoundId,
-            _channelSoundName,
+          AndroidNotificationChannel(
+            r.androidChannelId,
+            r.androidChannelName,
             description: _channelSoundDesc,
             importance: Importance.max,
             playSound: true,
+            sound: RawResourceAndroidNotificationSound(r.rawResource),
             enableVibration: true,
           ),
         );
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[OrderNotificationService] channel ${r.id} fallback: $e');
+        try {
+          await androidPlugin.createNotificationChannel(
+            AndroidNotificationChannel(
+              r.androidChannelId,
+              r.androidChannelName,
+              description: _channelSoundDesc,
+              importance: Importance.max,
+              playSound: true,
+              enableVibration: true,
+            ),
+          );
+        } catch (_) {}
+      }
     }
 
     // Canal silencieux (quand l'utilisateur désactive la sonnerie)
@@ -207,17 +293,27 @@ class OrderNotificationService {
     await prefs.setBool(_prefSoundEnabled, enabled);
   }
 
+  Future<void> setSelectedRingtone(String ringtoneId) async {
+    final resolved = resolveRingtone(ringtoneId);
+    selectedRingtoneId = resolved.id;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefSoundKey, resolved.id);
+  }
+
   Future<void> setBackgroundMonitorEnabled(bool enabled) async {
     backgroundMonitorEnabled = enabled;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefBgMonitorEnabled, enabled);
   }
 
-  Future<void> playRingtone() async {
-    if (!soundEnabled) return;
+  Future<void> playRingtone({String? overrideRingtoneId, bool force = false}) async {
+    if (!force && !soundEnabled) return;
+    final option = overrideRingtoneId != null
+        ? resolveRingtone(overrideRingtoneId)
+        : currentRingtone;
     try {
       await _audioPlayer.stop();
-      await _audioPlayer.play(AssetSource('sounds/money_chime.wav'));
+      await _audioPlayer.play(AssetSource('sounds/${option.fileName}'));
     } catch (e) {
       debugPrint('[OrderNotificationService] Audio error: $e');
     }
@@ -269,15 +365,18 @@ class OrderNotificationService {
     required String title,
     required String body,
   }) async {
-    final channelId = soundEnabled ? _channelSoundId : _channelSilentId;
-    final channelName = soundEnabled ? _channelSoundName : _channelSilentName;
+    final ringtone = currentRingtone;
+    final channelId =
+        soundEnabled ? ringtone.androidChannelId : _channelSilentId;
+    final channelName =
+        soundEnabled ? ringtone.androidChannelName : _channelSilentName;
     final channelDesc = soundEnabled ? _channelSoundDesc : _channelSilentDesc;
 
     final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: soundEnabled,
-      sound: soundEnabled ? 'money_chime.wav' : null,
+      sound: soundEnabled ? ringtone.fileName : null,
     );
 
     final androidDetails = AndroidNotificationDetails(
@@ -289,7 +388,7 @@ class OrderNotificationService {
       visibility: NotificationVisibility.public,
       playSound: soundEnabled,
       sound: soundEnabled
-          ? const RawResourceAndroidNotificationSound('money_chime')
+          ? RawResourceAndroidNotificationSound(ringtone.rawResource)
           : null,
       enableVibration: true,
       icon: '@mipmap/ic_launcher',
@@ -305,7 +404,6 @@ class OrderNotificationService {
       );
     } catch (e) {
       debugPrint('[OrderNotificationService] show custom sound error: $e');
-      // Fallback garanti avec le son système Android pour ne JAMAIS rater l'affichage !
       try {
         final fallbackAndroid = AndroidNotificationDetails(
           channelId,

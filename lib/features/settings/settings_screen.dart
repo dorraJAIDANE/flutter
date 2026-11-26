@@ -5,6 +5,7 @@ import '../../core/l10n/app_l10n.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/store_settings_model.dart';
+import '../../data/services/order_notification_service.dart';
 import '../../state/app_state.dart';
 import '../widgets/store_switcher_sheet.dart';
 
@@ -1547,6 +1548,187 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? (v) => widget.state.setSoundEnabled(v)
                         : null,
                   ),
+                  if (widget.state.notificationsEnabled &&
+                      widget.state.soundEnabled) ...[
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppL10n.t('settings_ringtone_title'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13.5,
+                              color: XfyColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            AppL10n.t('settings_ringtone_sub'),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: XfyColors.inkSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          ...OrderNotificationService.ringtones.map((tone) {
+                            final selected =
+                                widget.state.selectedRingtoneId == tone.id;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  widget.state.setSelectedRingtone(tone.id);
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 160),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: selected
+                                        ? XfyColors.primarySoft
+                                        : XfyColors.canvas,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: selected
+                                          ? XfyColors.primaryVibrant
+                                          : XfyColors.border,
+                                      width: selected ? 1.5 : 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 34,
+                                        height: 34,
+                                        decoration: BoxDecoration(
+                                          color: selected
+                                              ? XfyColors.primaryVibrant
+                                              : XfyColors.surface,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: selected
+                                                ? Colors.transparent
+                                                : XfyColors.border,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          selected
+                                              ? Icons.music_note_rounded
+                                              : Icons.notifications_active_outlined,
+                                          size: 18,
+                                          color: selected
+                                              ? Colors.white
+                                              : XfyColors.primaryVibrant,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    AppL10n.t(tone.titleKey),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: selected
+                                                          ? XfyColors.primaryDark
+                                                          : XfyColors.ink,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (tone.isDefault) ...[
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(
+                                                          0xFFFFF3E8),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              99),
+                                                    ),
+                                                    child: Text(
+                                                      AppL10n.t(
+                                                        'settings_ringtone_default_badge',
+                                                      ),
+                                                      style: const TextStyle(
+                                                        fontSize: 9.5,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        color:
+                                                            Color(0xFFFF6600),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                            const SizedBox(height: 1),
+                                            Text(
+                                              AppL10n.t(tone.subtitleKey),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: XfyColors.inkSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Écouter',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () {
+                                          HapticFeedback.lightImpact();
+                                          widget.state
+                                              .previewRingtone(tone.id);
+                                        },
+                                        icon: Icon(
+                                          Icons.volume_up_rounded,
+                                          size: 20,
+                                          color: selected
+                                              ? XfyColors.primaryVibrant
+                                              : XfyColors.inkSecondary,
+                                        ),
+                                      ),
+                                      if (selected)
+                                        const Icon(
+                                          Icons.check_circle_rounded,
+                                          size: 20,
+                                          color: XfyColors.primaryVibrant,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (isAndroid) ...[
                     const Divider(height: 1),
                     SwitchListTile(

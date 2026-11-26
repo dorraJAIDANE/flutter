@@ -42,9 +42,16 @@ class AppState extends ChangeNotifier {
 
   bool get notificationsEnabled => _notifications.notificationsEnabled;
   bool get soundEnabled => _notifications.soundEnabled;
+  String get selectedRingtoneId => _notifications.selectedRingtoneId;
+  OrderRingtoneOption get currentRingtone => _notifications.currentRingtone;
   bool get backgroundMonitorEnabled => _notifications.backgroundMonitorEnabled;
   bool get systemNotificationsAllowed => _notifications.systemPermissionGranted;
   bool get isStompConnected => _orderWatcher.isStompConnected;
+
+  // Index O(1) nom produit normalisé -> URL image produit (pour vignettes dans Commandes)
+  Map<String, String> _productImageIndex = const {};
+  int _productImageIndexVersion = -1;
+  bool _isSyncingCarrierStatuses = false;
 
   bool isBackgroundMonitorRunning = false;
   bool isIgnoringBatteryOptimizations = true;
@@ -660,6 +667,7 @@ class AppState extends ChangeNotifier {
       lastSeenOrderId: maxId,
       notificationsEnabled: notificationsEnabled,
       soundEnabled: soundEnabled,
+      soundKey: selectedRingtoneId,
       language: languageCode,
     );
     notifyListeners();
@@ -703,6 +711,7 @@ class AppState extends ChangeNotifier {
     await _nativeMonitor.updatePreferences(
       notificationsEnabled: value,
       soundEnabled: soundEnabled,
+      soundKey: selectedRingtoneId,
     );
     await _syncBackgroundMonitorService();
     notifyListeners();
@@ -713,8 +722,25 @@ class AppState extends ChangeNotifier {
     await _nativeMonitor.updatePreferences(
       notificationsEnabled: notificationsEnabled,
       soundEnabled: value,
+      soundKey: selectedRingtoneId,
     );
     notifyListeners();
+  }
+
+  Future<void> setSelectedRingtone(String ringtoneId) async {
+    await _notifications.setSelectedRingtone(ringtoneId);
+    await _nativeMonitor.setSoundKey(selectedRingtoneId);
+    await _nativeMonitor.updatePreferences(
+      notificationsEnabled: notificationsEnabled,
+      soundEnabled: soundEnabled,
+      soundKey: selectedRingtoneId,
+    );
+    notifyListeners();
+    unawaited(_notifications.playRingtone(overrideRingtoneId: selectedRingtoneId, force: true));
+  }
+
+  Future<void> previewRingtone(String ringtoneId) async {
+    await _notifications.playRingtone(overrideRingtoneId: ringtoneId, force: true);
   }
 
   Future<void> setBackgroundMonitorEnabled(bool value) async {
@@ -850,6 +876,7 @@ class AppState extends ChangeNotifier {
       _recomputePendingCount();
       ordersVersion++;
       _lastOrdersFullSync = DateTime.now();
+      unawaited(syncActiveCarrierStatusesInBackground());
     } catch (e) {
       ordersError = e.toString();
     } finally {
@@ -936,26 +963,211 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String> sendOrderToCarrier(OrderModel order, String carrier) async {
-    final res = await api.sendOrderToCarrier(orderId: order.id, carrier: carrier);
+    final res = await saveAndSendOrderToCarrier(order, carrier);
+    return res.message;
+  }
+
+  /// Enregistre les champs modifiés d'une commande (`PUT /commande/orders/{id}`).
+  Future<OrderModel> updateOrderDetails(OrderModel updatedOrder) async {
+    final saved = await api.updateOrderFields(updatedOrder);
+    _replaceOrderInLists(saved);
+    notifyListeners();
+    return saved;
+  }
+
+  /// Enregistre d'abord les champs complétés puis envoie la commande à la société de livraison choisie.
+  Future<({OrderModel order, String message})> saveAndSendOrderToCarrier(
+    OrderModel editedOrder,
+    String carrier,
+  ) async {
+    // 1. Sauvegarder les champs complétés en base avant l'expédition (comme Web)
+    final savedOrder = await api.updateOrderFields(editedOrder);
+    _replaceOrderInLists(savedOrder);
+
+    // 2. Envoyer à la société de livraison
+    final res = await api.sendOrderToCarrier(
+      orderId: savedOrder.id,
+      carrier: carrier,
+    );
     if (res['success'] == false) {
       throw ApiException(
         (res['error'] ?? res['message'] ?? 'Échec envoi transporteur')
             .toString(),
       );
     }
-    final tracking =
-        (res['tracking'] ?? res['nid'] ?? res['code'] ?? '').toString();
-    final updated = order.copyWith(
-      status: 'traitee',
-      numeroBordereau: tracking.isNotEmpty ? tracking : order.numeroBordereau,
+    final tracking = (res['tracking'] ??
+            res['barCode'] ??
+            res['nid'] ??
+            res['code'] ??
+            '')
+        .toString()
+        .trim();
+    final carrierStatus = (res['status'] ??
+            res['status_message'] ??
+            'En attente')
+        .toString()
+        .trim();
+
+    final updated = savedOrder.copyWith(
+      status: 'confirmee',
+      numeroBordereau:
+          tracking.isNotEmpty ? tracking : savedOrder.numeroBordereau,
+      statutIntigo:
+          carrierStatus.isNotEmpty ? carrierStatus : savedOrder.statutIntigo,
       deliveryCompany: carrier,
+      envoyerAIntigo: 'true',
     );
     _replaceOrderInLists(updated);
     notifyListeners();
     refreshDashboard();
-    return tracking.isNotEmpty
-        ? 'Colis envoyé ($tracking)'
-        : 'Colis envoyé à $carrier';
+
+    final label = OrderModel.formatCarrierLabel(carrier);
+    final msg = tracking.isNotEmpty
+        ? 'Colis envoyé à $label ($tracking)'
+        : 'Colis envoyé à $label';
+    return (order: updated, message: msg);
+  }
+
+  /// Actualise en direct le statut de livraison auprès de la société de livraison.
+  Future<OrderModel> refreshOrderCarrierStatus(OrderModel order) async {
+    if (!order.hasBordereau) return order;
+    final res = await api.fetchCarrierParcelStatus(order);
+    final changed = (res.carrierStatus != null &&
+            res.carrierStatus != order.statutIntigo) ||
+        (res.orderStatus != null && res.orderStatus != order.status) ||
+        (res.deliveryCompany != null &&
+            res.deliveryCompany != order.deliveryCompany);
+    if (!changed) return order;
+
+    final updated = order.copyWith(
+      statutIntigo: res.carrierStatus ?? order.statutIntigo,
+      status: res.orderStatus ?? order.status,
+      deliveryCompany: res.deliveryCompany ?? order.deliveryCompany,
+    );
+    _replaceOrderInLists(updated);
+    notifyListeners();
+    return updated;
+  }
+
+  /// Rafraîchissement léger et non-bloquant des statuts de livraison des commandes récentes en transit.
+  Future<void> syncActiveCarrierStatusesInBackground() async {
+    if (_isSyncingCarrierStatuses) return;
+    _isSyncingCarrierStatuses = true;
+    try {
+      const finalTokens = [
+        'colis livré',
+        'livré',
+        'colis livre',
+        'livre',
+        'annulé',
+        'annulée',
+        'annule',
+        'annulee',
+        'retourné',
+        'retourne',
+        'delivered',
+        'canceled',
+        'returned',
+      ];
+      final candidates = <OrderModel>[];
+      for (final o in orders) {
+        if (!o.hasBordereau) continue;
+        final cur = (o.statutIntigo ?? '').toLowerCase().trim();
+        if (cur.isNotEmpty && finalTokens.any((f) => cur == f)) continue;
+        candidates.add(o);
+        if (candidates.length >= 15) break;
+      }
+      if (candidates.isEmpty) return;
+
+      bool anyUpdated = false;
+      for (int i = 0; i < candidates.length; i += 3) {
+        final chunk = candidates.skip(i).take(3).toList();
+        await Future.wait(chunk.map((o) async {
+          try {
+            final res = await api.fetchCarrierParcelStatus(o);
+            final changed = (res.carrierStatus != null &&
+                    res.carrierStatus != o.statutIntigo) ||
+                (res.orderStatus != null && res.orderStatus != o.status) ||
+                (res.deliveryCompany != null &&
+                    res.deliveryCompany != o.deliveryCompany);
+            if (changed) {
+              final updated = o.copyWith(
+                statutIntigo: res.carrierStatus ?? o.statutIntigo,
+                status: res.orderStatus ?? o.status,
+                deliveryCompany: res.deliveryCompany ?? o.deliveryCompany,
+              );
+              _replaceOrderInLists(updated);
+              anyUpdated = true;
+            }
+          } catch (_) {}
+        }));
+      }
+      if (anyUpdated) {
+        notifyListeners();
+      }
+    } finally {
+      _isSyncingCarrierStatuses = false;
+    }
+  }
+
+  /// Résout instantanément (O(1)) la photo d'un produit depuis le catalogue chargé.
+  String? resolveCatalogProductImage(String? rawProductName) {
+    if (rawProductName == null || rawProductName.trim().isEmpty) return null;
+    if (_productImageIndexVersion != productsVersion) {
+      final map = <String, String>{};
+      for (final p in products) {
+        final img = p.imageUrl?.trim();
+        if (img == null || img.isEmpty || img == 'null') continue;
+        final key = XfyFormatters.stripAccents(p.nom.trim());
+        map.putIfAbsent(key, () => img);
+      }
+      _productImageIndex = map;
+      _productImageIndexVersion = productsVersion;
+    }
+    if (_productImageIndex.isEmpty) return null;
+
+    // Nettoyer d'éventuels suffixes de variante/offre ex: "Robe Noir [Offre: ...]" ou "Robe (M)"
+    final cleaned = rawProductName
+        .split(';')
+        .first
+        .replaceAll(RegExp(r'\[Offre:[^\]]*\]', caseSensitive: false), '')
+        .trim();
+    final norm = XfyFormatters.stripAccents(cleaned);
+    if (norm.isEmpty) return null;
+
+    final exact = _productImageIndex[norm];
+    if (exact != null) return exact;
+
+    for (final entry in _productImageIndex.entries) {
+      if (entry.key.length >= 3 &&
+          (norm.contains(entry.key) || entry.key.contains(norm))) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  /// Crée un nouveau produit sur le backend XFY puis recharge le catalogue.
+  Future<void> createProduct({
+    required Map<String, dynamic> productData,
+    required List<String> imagePaths,
+    int? initialSimpleStock,
+  }) async {
+    final res = await api.createProduct(
+      productData: productData,
+      imagePaths: imagePaths,
+    );
+    // Si produit simple avec stock initial explicite et ID retourné, synchroniser le stock
+    if (initialSimpleStock != null && initialSimpleStock >= 0 && res != null) {
+      final rawId = res['id'];
+      final createdId = rawId is num ? rawId.toInt() : int.tryParse('$rawId');
+      if (createdId != null && createdId > 0) {
+        try {
+          await api.updateProductStock(createdId, initialSimpleStock);
+        } catch (_) {}
+      }
+    }
+    await refreshProducts();
   }
 
   Future<OrderModel> lookupScannedOrder(String code) async {

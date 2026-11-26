@@ -41,6 +41,7 @@ class MainActivity : FlutterActivity() {
                         val lastSeenOrderId = (call.argument<Number>("lastSeenOrderId"))?.toLong() ?: 0L
                         val notifEnabled = call.argument<Boolean>("notificationsEnabled") ?: true
                         val soundEnabled = call.argument<Boolean>("soundEnabled") ?: true
+                        val soundKey = call.argument<String>("soundKey") ?: OrderMonitorService.DEFAULT_SOUND_KEY
                         val language = call.argument<String>("language") ?: "fr"
                         val currentStored = prefs.getLong(OrderMonitorService.KEY_LAST_SEEN_ID, -1L)
                         val prevStore = prefs.getLong(OrderMonitorService.KEY_STORE_ID, -1L)
@@ -57,6 +58,7 @@ class MainActivity : FlutterActivity() {
                             .putLong(OrderMonitorService.KEY_LAST_SEEN_ID, effectiveLastSeen)
                             .putBoolean(OrderMonitorService.KEY_NOTIF_ENABLED, notifEnabled)
                             .putBoolean(OrderMonitorService.KEY_SOUND_ENABLED, soundEnabled)
+                            .putString(OrderMonitorService.KEY_SOUND_KEY, soundKey)
                             .putString(OrderMonitorService.KEY_LANG, language)
                             .apply()
 
@@ -97,10 +99,14 @@ class MainActivity : FlutterActivity() {
                     "updatePreferences" -> {
                         val notifEnabled = call.argument<Boolean>("notificationsEnabled") ?: true
                         val soundEnabled = call.argument<Boolean>("soundEnabled") ?: true
+                        val soundKey = call.argument<String>("soundKey")
                         val language = call.argument<String>("language")
                         val editor = prefs.edit()
                             .putBoolean(OrderMonitorService.KEY_NOTIF_ENABLED, notifEnabled)
                             .putBoolean(OrderMonitorService.KEY_SOUND_ENABLED, soundEnabled)
+                        if (!soundKey.isNullOrBlank()) {
+                            editor.putString(OrderMonitorService.KEY_SOUND_KEY, soundKey)
+                        }
                         if (!language.isNullOrBlank()) {
                             editor.putString(OrderMonitorService.KEY_LANG, language)
                         }
@@ -108,6 +114,12 @@ class MainActivity : FlutterActivity() {
                         if (!notifEnabled) {
                             stopService(Intent(this@MainActivity, OrderMonitorService::class.java))
                         }
+                        result.success(true)
+                    }
+
+                    "setSoundKey" -> {
+                        val soundKey = call.argument<String>("soundKey") ?: OrderMonitorService.DEFAULT_SOUND_KEY
+                        prefs.edit().putString(OrderMonitorService.KEY_SOUND_KEY, soundKey).apply()
                         result.success(true)
                     }
 

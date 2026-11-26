@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/product_model.dart';
 import '../../state/app_state.dart';
+import 'add_product_sheet.dart';
 import 'stock_edit_sheet.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -76,6 +77,25 @@ class _ProductsScreenState extends State<ProductsScreen> {
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'xfy_add_product_fab',
+        backgroundColor: XfyColors.primaryVibrant,
+        foregroundColor: Colors.white,
+        elevation: 3,
+        onPressed: () {
+          HapticFeedback.lightImpact();
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => AddProductSheet(state: widget.state),
+          );
+        },
+        icon: const Icon(Icons.add_rounded),
+        label: Text(
+          AppL10n.t('products_new'),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       body: Column(
         children: [
@@ -220,7 +240,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           physics: const AlwaysScrollableScrollPhysics(
                             parent: BouncingScrollPhysics(),
                           ),
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 92),
                           itemCount: visible.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 10),
                           itemBuilder: (context, index) {

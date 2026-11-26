@@ -42,6 +42,7 @@ class NativeOrderMonitorBridge {
     required int lastSeenOrderId,
     required bool notificationsEnabled,
     required bool soundEnabled,
+    String soundKey = 'shopify_chaching',
     String language = 'fr',
   }) async {
     if (!_isAndroid) return false;
@@ -53,6 +54,7 @@ class NativeOrderMonitorBridge {
         'lastSeenOrderId': lastSeenOrderId,
         'notificationsEnabled': notificationsEnabled,
         'soundEnabled': soundEnabled,
+        'soundKey': soundKey,
         'language': language,
       });
       return ok == true;
@@ -92,6 +94,7 @@ class NativeOrderMonitorBridge {
   Future<void> updatePreferences({
     required bool notificationsEnabled,
     required bool soundEnabled,
+    String? soundKey,
     String? language,
   }) async {
     if (!_isAndroid) return;
@@ -99,8 +102,18 @@ class NativeOrderMonitorBridge {
       await _channel.invokeMethod('updatePreferences', {
         'notificationsEnabled': notificationsEnabled,
         'soundEnabled': soundEnabled,
+        'soundKey': ?soundKey,
         'language': ?language,
       });
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> setSoundKey(String soundKey) async {
+    if (!_isAndroid) return;
+    try {
+      await _channel.invokeMethod('setSoundKey', {'soundKey': soundKey});
     } catch (_) {
       // ignore
     }

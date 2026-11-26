@@ -312,4 +312,50 @@ void main() {
 
     AppL10n.setLanguage('fr');
   });
+
+  test('OrderNotificationService exposes Shopify/Converty default + 3 extra ringtones', () {
+    expect(OrderNotificationService.ringtones.length, 4);
+    expect(OrderNotificationService.defaultRingtoneId, 'shopify_chaching');
+    expect(OrderNotificationService.ringtones.first.id, 'shopify_chaching');
+    expect(OrderNotificationService.ringtones.first.isDefault, isTrue);
+    expect(
+      OrderNotificationService.resolveRingtone('unknown').id,
+      'shopify_chaching',
+    );
+    expect(OrderNotificationService.resolveRingtone('gold_coins').fileName, 'gold_coins.wav');
+  });
+
+  test('OrderModel detects missing delivery fields, capture source, and carrier status', () {
+    final incomplete = OrderModel.fromJson({
+      'id': 99,
+      'nom': 'Sami',
+      'phoneNumber': '1234',
+      'status': 'en_cours',
+      'produit': 'Veste',
+      'total': 120,
+      'image': '/Uploads/capture_99.jpg',
+    });
+    expect(incomplete.hasCapture, isTrue);
+    expect(incomplete.captureSource, '/Uploads/capture_99.jpg');
+    expect(incomplete.canDispatchToCarrier, isTrue);
+    expect(incomplete.hasMissingDeliveryFields, isTrue);
+    expect(
+      incomplete.missingDeliveryFields,
+      containsAll(['Téléphone (8 chiffres)', 'Gouvernorat', 'Ville / Délégation', 'Adresse']),
+    );
+
+    final shipped = incomplete.copyWith(
+      phoneNumber: '92557500',
+      gouvernorat: 'Tunis',
+      ville: 'La Marsa',
+      adresse: 'Avenue Habib Bourguiba',
+      numeroBordereau: 'FD-123456',
+      deliveryCompany: 'first',
+      statutIntigo: 'En cours de livraison',
+    );
+    expect(shipped.hasMissingDeliveryFields, isFalse);
+    expect(shipped.canDispatchToCarrier, isFalse);
+    expect(shipped.formattedCarrierName, 'First Delivery');
+    expect(shipped.carrierStatusLabel, 'En cours de livraison');
+  });
 }

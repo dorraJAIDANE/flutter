@@ -36,6 +36,13 @@ class OrderModel {
     this.numeroBordereau,
     this.statutIntigo,
     this.deliveryCompany,
+    this.image,
+    this.imageBase64,
+    this.phone2,
+    this.reference,
+    this.emetteur,
+    this.lien,
+    this.exchange = false,
     this.timestamp,
     this.dateCommande,
     this.createdAt,
@@ -76,6 +83,13 @@ class OrderModel {
   final String? numeroBordereau;
   final String? statutIntigo;
   final String? deliveryCompany;
+  final String? image;
+  final String? imageBase64;
+  final String? phone2;
+  final String? reference;
+  final String? emetteur;
+  final String? lien;
+  final bool exchange;
   final String? timestamp;
   final String? dateCommande;
   final String? createdAt;
@@ -123,10 +137,114 @@ class OrderModel {
   bool get isReturned => unifiedStatus == 'retournee';
   bool get isDelivered => unifiedStatus == 'encaissee';
 
+  /// Source d'image / capture d'écran associée à la commande (URL ou Base64).
+  String? get captureSource {
+    final img = image?.trim();
+    if (img != null && img.isNotEmpty && img.toLowerCase() != 'null') {
+      return img;
+    }
+    final b64 = imageBase64?.trim();
+    if (b64 != null && b64.isNotEmpty && b64.toLowerCase() != 'null') {
+      return b64.startsWith('data:image') ? b64 : 'data:image/jpeg;base64,$b64';
+    }
+    return null;
+  }
+
+  bool get hasCapture => captureSource != null;
+
+  /// Statut réel retourné par la société de livraison (`statutIntigo`).
+  String? get carrierStatusLabel {
+    final s = statutIntigo?.trim();
+    if (s == null ||
+        s.isEmpty ||
+        s.toUpperCase() == 'N/A' ||
+        s.toLowerCase() == 'null') {
+      return null;
+    }
+    return s;
+  }
+
+  bool get hasCarrierStatus => carrierStatusLabel != null;
+
+  /// Nom formaté de la société de livraison.
+  String? get formattedCarrierName {
+    final raw = deliveryCompany?.trim();
+    if (raw == null || raw.isEmpty || raw.toLowerCase() == 'null') return null;
+    return formatCarrierLabel(raw);
+  }
+
+  static String formatCarrierLabel(String raw) {
+    switch (raw.toLowerCase().trim()) {
+      case 'navex':
+        return 'Navex';
+      case 'intigo':
+        return 'Intigo';
+      case 'jax':
+        return 'JAX';
+      case 'qwikpak':
+        return 'QwikPak';
+      case 'colissimo':
+        return 'Colissimo';
+      case 'first':
+      case 'first delivery':
+      case 'firstdelivery':
+        return 'First Delivery';
+      case 'x-delivery':
+      case 'xdelivery':
+        return 'X-Delivery';
+      case 'cosmos':
+        return 'Cosmos';
+      case 'aramex':
+        return 'Aramex';
+      default:
+        return raw;
+    }
+  }
+
+  bool get canDispatchToCarrier =>
+      !hasBordereau && !isCancelled && !isDelivered;
+
+  /// Liste lisible des champs manquants avant envoi à une société de livraison.
+  List<String> get missingDeliveryFields {
+    final missing = <String>[];
+    if (nom.trim().isEmpty || nom.trim().toLowerCase() == 'non spécifié') {
+      missing.add('Nom');
+    }
+    final digits = phoneNumber.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 8) {
+      missing.add('Téléphone (8 chiffres)');
+    }
+    if (!exchange) {
+      if (gouvernorat == null ||
+          gouvernorat!.trim().isEmpty ||
+          gouvernorat!.trim().toLowerCase() == 'non spécifié') {
+        missing.add('Gouvernorat');
+      }
+      if (ville == null ||
+          ville!.trim().isEmpty ||
+          ville!.trim().toLowerCase() == 'non spécifié') {
+        missing.add('Ville / Délégation');
+      }
+      if (adresse == null ||
+          adresse!.trim().isEmpty ||
+          adresse!.trim().toLowerCase() == 'non spécifié') {
+        missing.add('Adresse');
+      }
+    }
+    if (produit == null ||
+        produit!.trim().isEmpty ||
+        produit!.trim().toLowerCase() == 'non spécifié') {
+      missing.add('Produit');
+    }
+    if (effectiveTotal <= 0) {
+      missing.add('Total (DT)');
+    }
+    return missing;
+  }
+
+  bool get hasMissingDeliveryFields => missingDeliveryFields.isNotEmpty;
+
   /// Date de référence pour les statistiques/analytics, IDENTIQUE à `getOrderDate()` sur le Web :
-  /// 1. Si livrée/encaissée -> `dateLivraison`
-  /// 2. Si retournée -> `datePremierRetour` puis `dateRetour`
-  /// 3. Sinon -> `timestamp` || `dateCommande` || `created_at` || `createdAt`
   DateTime? get effectiveAnalyticsDate {
     if (_analyticsDateComputed) return _cachedAnalyticsDate;
     _analyticsDateComputed = true;
@@ -260,7 +378,7 @@ class OrderModel {
 
   /// Chaîne concaténée en minuscules pour filtrage O(1) sans allocations répétées.
   String get searchBlob => _cachedSearchBlob ??=
-      '$nom $phoneNumber $id ${produit ?? ''} ${numeroBordereau ?? ''} $locationLabel'
+      '$nom $phoneNumber $id ${reference ?? ''} ${produit ?? ''} ${numeroBordereau ?? ''} ${statutIntigo ?? ''} ${deliveryCompany ?? ''} $locationLabel'
           .toLowerCase();
 
   String get shortDateLabel => _cachedShortDate ??=
@@ -276,39 +394,74 @@ class OrderModel {
       numeroBordereau!.trim().toUpperCase() != 'N/A';
 
   OrderModel copyWith({
+    String? nom,
+    String? phoneNumber,
+    String? phone2,
+    String? produit,
+    String? quantite,
+    String? prix,
+    double? total,
+    double? fraisLivraison,
+    String? adresse,
+    String? gouvernorat,
+    String? ville,
+    String? zone,
     String? status,
     String? commentaire,
     String? numeroBordereau,
     String? statutIntigo,
     String? deliveryCompany,
+    String? envoyerAIntigo,
+    bool? exchange,
   }) {
     final updatedRaw = Map<String, dynamic>.from(rawJson);
+    if (nom != null) updatedRaw['nom'] = nom;
+    if (phoneNumber != null) updatedRaw['phoneNumber'] = phoneNumber;
+    if (phone2 != null) updatedRaw['phone2'] = phone2;
+    if (produit != null) updatedRaw['produit'] = produit;
+    if (quantite != null) updatedRaw['quantite'] = quantite;
+    if (prix != null) updatedRaw['prix'] = prix;
+    if (total != null) updatedRaw['total'] = total;
+    if (fraisLivraison != null) updatedRaw['fraisLivraison'] = fraisLivraison;
+    if (adresse != null) updatedRaw['adresse'] = adresse;
+    if (gouvernorat != null) updatedRaw['gouvernorat'] = gouvernorat;
+    if (ville != null) updatedRaw['ville'] = ville;
+    if (zone != null) updatedRaw['zone'] = zone;
     if (status != null) updatedRaw['status'] = status;
     if (commentaire != null) updatedRaw['commentaire'] = commentaire;
     if (numeroBordereau != null) updatedRaw['numeroBordereau'] = numeroBordereau;
     if (statutIntigo != null) updatedRaw['statutIntigo'] = statutIntigo;
     if (deliveryCompany != null) updatedRaw['deliveryCompany'] = deliveryCompany;
+    if (envoyerAIntigo != null) updatedRaw['envoyerAIntigo'] = envoyerAIntigo;
+    if (exchange != null) updatedRaw['exchange'] = exchange;
 
     return OrderModel(
       id: id,
       storeId: storeId,
-      nom: nom,
-      phoneNumber: phoneNumber,
+      nom: nom ?? this.nom,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       status: status ?? this.status,
-      produit: produit,
-      quantite: quantite,
-      prix: prix,
-      total: total,
+      produit: produit ?? this.produit,
+      quantite: quantite ?? this.quantite,
+      prix: prix ?? this.prix,
+      total: total ?? this.total,
       manualTotalValue: manualTotalValue,
-      fraisLivraison: fraisLivraison,
-      adresse: adresse,
-      gouvernorat: gouvernorat,
-      ville: ville,
-      zone: zone,
+      fraisLivraison: fraisLivraison ?? this.fraisLivraison,
+      adresse: adresse ?? this.adresse,
+      gouvernorat: gouvernorat ?? this.gouvernorat,
+      ville: ville ?? this.ville,
+      zone: zone ?? this.zone,
       commentaire: commentaire ?? this.commentaire,
       numeroBordereau: numeroBordereau ?? this.numeroBordereau,
       statutIntigo: statutIntigo ?? this.statutIntigo,
       deliveryCompany: deliveryCompany ?? this.deliveryCompany,
+      image: image,
+      imageBase64: imageBase64,
+      phone2: phone2 ?? this.phone2,
+      reference: reference,
+      emetteur: emetteur,
+      lien: lien,
+      exchange: exchange ?? this.exchange,
       timestamp: timestamp,
       dateCommande: dateCommande,
       createdAt: createdAt,
@@ -373,6 +526,22 @@ class OrderModel {
       }
     }
 
+    // Garantir que les champs typés modifiés écrasent rawJson
+    payload['nom'] = nom;
+    payload['phoneNumber'] = phoneNumber;
+    if (phone2 != null) payload['phone2'] = phone2;
+    if (produit != null) payload['produit'] = produit;
+    if (quantite != null) payload['quantite'] = quantite;
+    if (prix != null) payload['prix'] = prix;
+    if (adresse != null) payload['adresse'] = adresse;
+    if (gouvernorat != null) payload['gouvernorat'] = gouvernorat;
+    if (ville != null) payload['ville'] = ville;
+    if (zone != null) payload['zone'] = zone;
+    if (commentaire != null) payload['commentaire'] = commentaire;
+    if (numeroBordereau != null) payload['numeroBordereau'] = numeroBordereau;
+    if (statutIntigo != null) payload['statutIntigo'] = statutIntigo;
+    if (deliveryCompany != null) payload['deliveryCompany'] = deliveryCompany;
+
     payload['status'] = XfyFormatters.normalizeStatus(newStatus ?? status);
     if (newComment != null) {
       payload['commentaire'] = newComment;
@@ -382,9 +551,7 @@ class OrderModel {
     if (rawJson['manualTotal'] is bool) {
       payload['manualTotal'] = rawJson['manualTotal'];
     }
-    if (rawJson['exchange'] is bool) {
-      payload['exchange'] = rawJson['exchange'];
-    }
+    payload['exchange'] = exchange;
 
     return payload;
   }
@@ -421,7 +588,6 @@ class OrderModel {
       return str.isEmpty ? null : str;
     }
 
-    // Produit texte ou tableau produits
     String? productLabel = json['produit']?.toString();
     if ((productLabel == null || productLabel.trim().isEmpty) &&
         json['produits'] is List &&
@@ -440,6 +606,10 @@ class OrderModel {
     if (parsedStoreId == null && json['store'] is Map) {
       parsedStoreId = parseNullableInt((json['store'] as Map)['id']);
     }
+
+    final isExchange = json['exchange'] == true ||
+        json['isExchange'] == true ||
+        json['is_exchange'] == true;
 
     return OrderModel(
       id: parseNullableInt(json['id']) ?? 0,
@@ -463,7 +633,15 @@ class OrderModel {
       commentaire: json['commentaire']?.toString(),
       numeroBordereau: json['numeroBordereau']?.toString(),
       statutIntigo: json['statutIntigo']?.toString(),
-      deliveryCompany: json['deliveryCompany']?.toString(),
+      deliveryCompany:
+          (json['deliveryCompany'] ?? json['delivery_company'])?.toString(),
+      image: json['image']?.toString(),
+      imageBase64: json['imageBase64']?.toString(),
+      phone2: json['phone2']?.toString(),
+      reference: json['reference']?.toString(),
+      emetteur: json['emetteur']?.toString(),
+      lien: json['lien']?.toString(),
+      exchange: isExchange,
       timestamp: parseDateField(json['timestamp']),
       dateCommande: parseDateField(json['dateCommande'] ?? json['date_commande']),
       createdAt: parseDateField(json['created_at'] ?? json['createdAt']),

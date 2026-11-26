@@ -6,8 +6,10 @@ import '../../core/utils/formatters.dart';
 import '../../data/models/order_model.dart';
 import '../../state/app_state.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/xfy_image.dart';
 import 'add_order_sheet.dart';
 import 'order_detail_sheet.dart';
+import 'send_to_delivery_sheet.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key, required this.state});
@@ -346,6 +348,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'xfy_add_order_fab',
         backgroundColor: XfyColors.primaryVibrant,
         foregroundColor: Colors.white,
         elevation: 3,
@@ -557,8 +560,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   const SizedBox(height: 12),
                               itemBuilder: (context, index) {
                                 final order = visible[index];
+                                final previewSrc = order.captureSource ??
+                                    widget.state.resolveCatalogProductImage(
+                                      order.produit,
+                                    );
                                 return _OrderCard(
                                   order: order,
+                                  previewImageSource: previewSrc,
+                                  isCapturePreview: order.hasCapture,
                                   onTap: () => showModalBottomSheet(
                                     context: context,
                                     isScrollControlled: true,
@@ -568,6 +577,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                     ),
                                   ),
                                   onStatusTap: () => _quickChangeStatus(order),
+                                  onDispatchTap: order.canDispatchToCarrier
+                                      ? () async {
+                                          HapticFeedback.selectionClick();
+                                          final res = await showModalBottomSheet<
+                                              ({
+                                            OrderModel order,
+                                            String message
+                                          })>(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            builder: (_) => SendToDeliverySheet(
+                                              state: widget.state,
+                                              order: order,
+                                              dispatchMode: true,
+                                            ),
+                                          );
+                                          if (res != null && context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                backgroundColor:
+                                                    XfyColors.emerald,
+                                                content: Text(res.message),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      : null,
                                 );
                               },
                             ),
@@ -718,15 +755,23 @@ class _OrderCard extends StatelessWidget {
     required this.order,
     required this.onTap,
     required this.onStatusTap,
+    this.previewImageSource,
+    this.isCapturePreview = false,
+    this.onDispatchTap,
   });
 
   final OrderModel order;
   final VoidCallback onTap;
   final VoidCallback onStatusTap;
+  final String? previewImageSource;
+  final bool isCapturePreview;
+  final VoidCallback? onDispatchTap;
 
   @override
   Widget build(BuildContext context) {
     final hasReturnHistory = (order.clientReturnedOrders ?? 0) > 0;
+    final hasMissing =
+        order.canDispatchToCarrier && order.hasMissingDeliveryFields;
 
     return RepaintBoundary(
       child: InkWell(
@@ -768,216 +813,345 @@ class _OrderCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      GestureDetector(
-                        onTap: onStatusTap,
-                        child: StatusBadge(
-                          status: order.normalizedStatus == 'pas_de_reponse'
-                              ? 'pas_de_reponse'
-                              : order.unifiedStatus,
+                        GestureDetector(
+                          onTap: onStatusTap,
+                          child: StatusBadge(
+                            status: order.normalizedStatus == 'pas_de_reponse'
+                                ? 'pas_de_reponse'
+                                : order.unifiedStatus,
+                          ),
                         ),
+                      ],
+                    ),
+                    // Statut de la société de livraison (visible directement sur la carte)
+                    if (order.hasCarrierStatus) ...[
+                      const SizedBox(height: 7),
+                      CarrierStatusPill(
+                        carrierStatus: order.carrierStatusLabel!,
+                        carrierName: order.formattedCarrierName,
+                        compact: true,
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Vignette Capture commande OU Photo produit (zoom au tap)
+                        if (previewImageSource != null) ...[
+                          GestureDetector(
+                            onTap: () => showXfyImageLightbox(
+                              context,
+                              source: previewImageSource!,
+                              title: isCapturePreview
+                                  ? 'Capture • Commande #${order.id}'
+                                  : (order.produit ?? 'Produit'),
+                              subtitle: order.nom,
+                            ),
+                            child: Stack(
                               children: [
-                                Flexible(
-                                  child: Text(
-                                    order.nom,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 15.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: XfyColors.ink,
-                                      letterSpacing: -0.2,
-                                    ),
+                                Container(
+                                  width: 54,
+                                  height: 54,
+                                  decoration: BoxDecoration(
+                                    color: XfyColors.canvas,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: XfyColors.border),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: XfySmartImage(
+                                    source: previewImageSource,
+                                    width: 54,
+                                    height: 54,
+                                    cacheWidth: 160,
+                                    cacheHeight: 160,
                                   ),
                                 ),
-                                if (hasReturnHistory) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
+                                if (isCapturePreview)
+                                  Positioned(
+                                    right: 2,
+                                    bottom: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFF6600),
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: const Icon(
+                                        Icons.photo_camera_rounded,
+                                        size: 10,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: XfyColors.roseSoft,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
                                     child: Text(
-                                      '${order.clientReturnedOrders} retour(s)',
+                                      order.nom,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: XfyColors.rose,
+                                        fontSize: 15.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: XfyColors.ink,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                  ),
+                                  if (hasReturnHistory) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: XfyColors.roseSoft,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '${order.clientReturnedOrders} retour(s)',
+                                        style: const TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: XfyColors.rose,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              if (order.produit != null &&
+                                  order.produit!.trim().isNotEmpty)
+                                Text(
+                                  '${order.produit}${(order.quantite != null && order.quantite!.isNotEmpty && order.quantite != '0') ? ' × ${order.quantite}' : ''}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: XfyColors.ink,
+                                  ),
+                                ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.location_on_outlined,
+                                    size: 14,
+                                    color: XfyColors.primaryVibrant,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      order.locationLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        color: XfyColors.inkSecondary,
                                       ),
                                     ),
                                   ),
                                 ],
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            if (order.produit != null &&
-                                order.produit!.trim().isNotEmpty)
-                              Text(
-                                '${order.produit}${(order.quantite != null && order.quantite!.isNotEmpty && order.quantite != '0') ? ' × ${order.quantite}' : ''}',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: XfyColors.ink,
-                                ),
                               ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.location_on_outlined,
-                                  size: 14,
-                                  color: XfyColors.primaryVibrant,
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              XfyFormatters.formatTnd(order.effectiveTotal),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: XfyColors.primaryDark,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                            if (order.hasBordereau) ...[
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
                                 ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    order.locationLabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 12.5,
-                                      color: XfyColors.inkSecondary,
-                                    ),
+                                decoration: BoxDecoration(
+                                  color: XfyColors.primarySoft,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  order.numeroBordereau!,
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: XfyColors.primaryVibrant,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            XfyFormatters.formatTnd(order.effectiveTotal),
-                            style: const TextStyle(
-                              fontSize: 16.5,
-                              fontWeight: FontWeight.w800,
-                              color: XfyColors.primaryDark,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                          if (order.hasBordereau) ...[
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
                               ),
-                              decoration: BoxDecoration(
-                                color: XfyColors.primarySoft,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                order.numeroBordereau!,
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: XfyColors.primaryVibrant,
+                            ] else if (hasMissing) ...[
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: XfyColors.amberSoft,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'À compléter',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF92400E),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            // 1-Tap Action Bar (Couleurs claires Web)
-            Container(
-              decoration: const BoxDecoration(
-                color: XfyColors.canvasAlt,
-                border: Border(top: BorderSide(color: XfyColors.divider)),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+              // 1-Tap Action Bar (Appeler / WhatsApp / Expédier ou Statut)
+              Container(
+                decoration: const BoxDecoration(
+                  color: XfyColors.canvasAlt,
+                  border: Border(top: BorderSide(color: XfyColors.divider)),
+                  borderRadius:
+                      BorderRadius.vertical(bottom: Radius.circular(20)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: order.phoneNumber.isEmpty
+                            ? null
+                            : () {
+                                HapticFeedback.lightImpact();
+                                XfyFormatters.launchPhoneCall(
+                                  order.phoneNumber,
+                                );
+                              },
+                        style: TextButton.styleFrom(
+                          foregroundColor: XfyColors.primaryBlue,
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        icon: const Icon(Icons.call_outlined, size: 16),
+                        label: const Text(
+                          'Appeler',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(width: 1, height: 18, color: XfyColors.divider),
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: order.phoneNumber.isEmpty
+                            ? null
+                            : () {
+                                HapticFeedback.lightImpact();
+                                XfyFormatters.launchWhatsApp(
+                                  order.phoneNumber,
+                                  message:
+                                      'Bonjour ${order.nom}, concernant votre commande #${order.id} (${order.produit ?? ''}) d\'un montant de ${XfyFormatters.formatTnd(order.effectiveTotal)}.',
+                                );
+                              },
+                        style: TextButton.styleFrom(
+                          foregroundColor: XfyColors.whatsapp,
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        icon: const Icon(Icons.chat_outlined, size: 16),
+                        label: const Text(
+                          'WhatsApp',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(width: 1, height: 18, color: XfyColors.divider),
+                    if (onDispatchTap != null)
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: onDispatchTap,
+                          style: TextButton.styleFrom(
+                            foregroundColor: hasMissing
+                                ? const Color(0xFFD97706)
+                                : XfyColors.primaryVibrant,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          icon: const Icon(
+                            Icons.local_shipping_outlined,
+                            size: 16,
+                          ),
+                          label: Text(
+                            AppL10n.t('send_to_carrier'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: onStatusTap,
+                          style: TextButton.styleFrom(
+                            foregroundColor: XfyColors.primaryVibrant,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          icon: const Icon(Icons.swap_horiz_rounded, size: 17),
+                          label: const Text(
+                            'Statut',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: order.phoneNumber.isEmpty
-                          ? null
-                          : () {
-                              HapticFeedback.lightImpact();
-                              XfyFormatters.launchPhoneCall(order.phoneNumber);
-                            },
-                      style: TextButton.styleFrom(
-                        foregroundColor: XfyColors.primaryBlue,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.call_outlined, size: 17),
-                      label: const Text(
-                        'Appeler',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                  Container(width: 1, height: 20, color: XfyColors.divider),
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: order.phoneNumber.isEmpty
-                          ? null
-                          : () {
-                              HapticFeedback.lightImpact();
-                              XfyFormatters.launchWhatsApp(
-                                order.phoneNumber,
-                                message:
-                                    'Bonjour ${order.nom}, concernant votre commande #${order.id} (${order.produit ?? ''}) d\'un montant de ${XfyFormatters.formatTnd(order.effectiveTotal)}.',
-                              );
-                            },
-                      style: TextButton.styleFrom(
-                        foregroundColor: XfyColors.whatsapp,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.chat_outlined, size: 17),
-                      label: const Text(
-                        'WhatsApp',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                  Container(width: 1, height: 20, color: XfyColors.divider),
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: onStatusTap,
-                      style: TextButton.styleFrom(
-                        foregroundColor: XfyColors.primaryVibrant,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                      label: const Text(
-                        'Statut',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

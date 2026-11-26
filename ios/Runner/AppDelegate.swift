@@ -52,7 +52,7 @@ import UserNotifications
       result(false)
 
     case "stopMonitor", "syncLastSeenOrderId", "setAppForeground",
-         "updatePreferences", "setLanguage",
+         "updatePreferences", "setLanguage", "setSoundKey",
          "isIgnoringBatteryOptimizations", "requestIgnoreBatteryOptimizations":
       result(true)
 

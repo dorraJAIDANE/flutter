@@ -42,10 +42,12 @@ jobs:
             echo "Erreur: $APP_PATH introuvable"
             exit 1
           fi
-          if [ ! -f "$APP_PATH/money_chime.wav" ]; then
-            echo "Copie de secours money_chime.wav dans Runner.app"
-            cp ios/Runner/money_chime.wav "$APP_PATH/money_chime.wav"
-          fi
+          for wav in shopify_chaching.wav gold_coins.wav crystal_bell.wav sale_pop.wav money_chime.wav; do
+            if [ ! -f "$APP_PATH/$wav" ] && [ -f "ios/Runner/$wav" ]; then
+              echo "Copie de secours $wav dans Runner.app"
+              cp "ios/Runner/$wav" "$APP_PATH/$wav"
+            fi
+          done
           rm -rf build/ios/ipa_payload build/ios/xfy-ios-sideloadly.ipa
           mkdir -p build/ios/ipa_payload/Payload
           cp -R "$APP_PATH" build/ios/ipa_payload/Payload/

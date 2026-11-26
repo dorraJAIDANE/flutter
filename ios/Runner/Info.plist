@@ -37,11 +37,16 @@
 		<string>http</string>
 		<string>whatsapp</string>
 		<string>mailto</string>
+		<string>fb-messenger</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>XFY utilise la caméra pour scanner les QR codes des commandes et bordereaux de livraison.</string>
+	<string>XFY utilise la caméra pour scanner les QR codes des commandes et photographier vos produits ou captures.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>XFY accède à votre photothèque pour ajouter des photos de produits et envoyer vos captures au Bot IA.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>XFY peut enregistrer des images de produits ou de commandes dans votre photothèque.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

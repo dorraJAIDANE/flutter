@@ -36,6 +36,11 @@ class XfyApiService {
   final http.Client _client;
   String? _token;
 
+  List<String>? _divisionsCache;
+  final Map<String, List<String>> _citiesCache = {};
+  final Map<String, List<String>> _localitiesCache = {};
+  final Map<String, String?> _productImageNameCache = {};
+
   String? get currentToken => _token;
 
   void setToken(String? token) {
@@ -319,6 +324,200 @@ class XfyApiService {
     return order.copyWith(status: newStatus, commentaire: newComment);
   }
 
+  Future<OrderModel> updateOrderFields(OrderModel order) async {
+    final payload = order.toUpdatePayload();
+    final data = await _put('/commande/orders/${order.id}', payload);
+    if (data is Map<String, dynamic>) {
+      return OrderModel.fromJson(data);
+    }
+    return order;
+  }
+
+  // ---------------- TUNISIA DIVISIONS / CITIES / ZONES ----------------
+
+  static List<String> _extractNameList(dynamic data) {
+    if (data is! List) return [];
+    final out = <String>[];
+    for (final item in data) {
+      if (item is String && item.trim().isNotEmpty) {
+        out.add(item.trim());
+      } else if (item is Map) {
+        final name =
+            (item['name'] ?? item['nom'] ?? item['label'] ?? item['title'])
+                ?.toString()
+                .trim();
+        if (name != null && name.isNotEmpty) {
+          out.add(name);
+        }
+      }
+    }
+    return out;
+  }
+
+  Future<List<String>> getDivisions() async {
+    if (_divisionsCache != null && _divisionsCache!.isNotEmpty) {
+      return _divisionsCache!;
+    }
+    try {
+      final data = await _get('/commande/divisions');
+      final list = _extractNameList(data);
+      if (list.isNotEmpty) {
+        _divisionsCache = list;
+        return list;
+      }
+    } catch (_) {}
+    return const [
+      'Tunis',
+      'Ariana',
+      'Ben Arous',
+      'Manouba',
+      'Nabeul',
+      'Zaghouan',
+      'Bizerte',
+      'Béja',
+      'Jendouba',
+      'Le Kef',
+      'Siliana',
+      'Sousse',
+      'Monastir',
+      'Mahdia',
+      'Sfax',
+      'Kairouan',
+      'Kasserine',
+      'Sidi Bouzid',
+      'Gabès',
+      'Médenine',
+      'Tataouine',
+      'Gafsa',
+      'Tozeur',
+      'Kébili',
+    ];
+  }
+
+  Future<List<String>> getCities(String gouvernorat) async {
+    final key = gouvernorat.trim();
+    if (key.isEmpty) return [];
+    final cached = _citiesCache[key];
+    if (cached != null) return cached;
+    try {
+      final data = await _get('/commande/subdivisions/${Uri.encodeComponent(key)}');
+      final list = _extractNameList(data);
+      _citiesCache[key] = list;
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<String>> getLocalities(String gouvernorat, String ville) async {
+    final g = gouvernorat.trim();
+    final v = ville.trim();
+    if (g.isEmpty || v.isEmpty) return [];
+    final key = '$g|$v';
+    final cached = _localitiesCache[key];
+    if (cached != null) return cached;
+    try {
+      final data = await _get(
+        '/commande/zones/${Uri.encodeComponent(g)}/${Uri.encodeComponent(v)}',
+      );
+      final list = _extractNameList(data);
+      _localitiesCache[key] = list;
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<String?> getOrderDeliveryCompany(int orderId) async {
+    try {
+      final data = await _get('/commande/$orderId/delivery-company');
+      if (data is Map &&
+          data['success'] == true &&
+          data['deliveryCompany'] != null) {
+        final c = data['deliveryCompany'].toString().trim();
+        return c.isEmpty ? null : c;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Interroge en direct l'API de la société de livraison configurée pour cette commande
+  /// (aligné 100 % sur `order-list.component.ts:2538-2614`).
+  Future<({String? carrierStatus, String? orderStatus, String? deliveryCompany})>
+      fetchCarrierParcelStatus(OrderModel order) async {
+    if (!order.hasBordereau) {
+      return (
+        carrierStatus: order.carrierStatusLabel,
+        orderStatus: null,
+        deliveryCompany: order.deliveryCompany,
+      );
+    }
+
+    String? company = order.deliveryCompany?.trim();
+    if (company == null || company.isEmpty || company.toLowerCase() == 'null') {
+      company = await getOrderDeliveryCompany(order.id);
+    }
+    if (company == null || company.isEmpty) {
+      // Fallback Intigo si un bordereau existe sans société explicite
+      company = 'intigo';
+    }
+
+    final key = company.toLowerCase().trim();
+    dynamic data;
+    try {
+      if (key.contains('intigo')) {
+        data = await _get(
+          '/commande/parcel-status/${Uri.encodeComponent(order.numeroBordereau!.trim())}',
+        );
+      } else if (key.contains('navex')) {
+        data = await _get('/commande/navex-status/${order.id}');
+      } else if (key.contains('jax')) {
+        data = await _get('/commande/orders/${order.id}/jax/status');
+      } else if (key.contains('first')) {
+        data = await _get('/commande/orders/${order.id}/first/status');
+      } else if (key.contains('x-delivery') || key.contains('xdelivery')) {
+        data = await _get('/commande/orders/${order.id}/xdelivery/status');
+      } else if (key.contains('cosmos')) {
+        data = await _get('/commande/orders/${order.id}/cosmos/status');
+      } else if (key.contains('qwikpak')) {
+        try {
+          data = await _get('/commande/qwikpak-status/${order.id}');
+        } catch (_) {
+          data = await _get('/commande/commande/qwikpak-status/${order.id}');
+        }
+      }
+    } catch (_) {
+      return (
+        carrierStatus: order.carrierStatusLabel,
+        orderStatus: null,
+        deliveryCompany: company,
+      );
+    }
+
+    if (data is Map && data['success'] == true) {
+      String? newStatus;
+      if (key.contains('navex') || key.contains('jax')) {
+        newStatus = (data['status_message'] ?? data['status'])?.toString().trim();
+      } else {
+        newStatus = (data['status'] ?? data['status_message'])?.toString().trim();
+      }
+      final newOrderStatus = data['orderStatus']?.toString().trim();
+      return (
+        carrierStatus:
+            (newStatus != null && newStatus.isNotEmpty) ? newStatus : order.carrierStatusLabel,
+        orderStatus:
+            (newOrderStatus != null && newOrderStatus.isNotEmpty) ? newOrderStatus : null,
+        deliveryCompany: company,
+      );
+    }
+
+    return (
+      carrierStatus: order.carrierStatusLabel,
+      orderStatus: null,
+      deliveryCompany: company,
+    );
+  }
+
   Future<OrderModel> addOrder(int storeId, Map<String, dynamic> payload) async {
     final data = await _post('/commande/addOrder/$storeId', payload);
     if (data is Map<String, dynamic>) {
@@ -515,6 +714,149 @@ class XfyApiService {
 
   Future<void> updateVariantStock(String variantId, int stock) async {
     await _patch('/produits/variants/$variantId/stock', {'stock': stock});
+  }
+
+  /// Récupère l'image d'un produit par son nom (fallback exact Web `getImageEtSlugParNom`).
+  Future<String?> getProductImageByName(String productName, int storeId) async {
+    final cleanName = productName.trim();
+    if (cleanName.isEmpty || storeId <= 0) return null;
+    final key = '$storeId|${cleanName.toLowerCase()}';
+    if (_productImageNameCache.containsKey(key)) {
+      return _productImageNameCache[key];
+    }
+    try {
+      final data = await _get(
+        '/produits/nom?nom=${Uri.encodeComponent(cleanName)}&storeId=$storeId',
+      );
+      if (data is Map) {
+        final raw = (data['imageUrl'] ?? data['productImage'])?.toString().trim();
+        final resolved =
+            (raw != null && raw.isNotEmpty && raw != 'null') ? raw : null;
+        _productImageNameCache[key] = resolved;
+        return resolved;
+      }
+    } catch (_) {}
+    _productImageNameCache[key] = null;
+    return null;
+  }
+
+  // ---------------- CATÉGORIES & CRÉATION PRODUIT ----------------
+
+  Future<List<Map<String, dynamic>>> getCategoriesByStore(int storeId) async {
+    try {
+      final data = await _get('/categories/store/$storeId');
+      if (data is List) {
+        return data
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getSubcategoriesByCategory(
+    int categoryId,
+    int storeId,
+  ) async {
+    try {
+      final data =
+          await _get('/sous-categories/category/$categoryId/store/$storeId');
+      if (data is List) {
+        return data
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    } catch (_) {
+      try {
+        final data =
+            await _get('/categories/$categoryId/sous-categories/store/$storeId');
+        if (data is List) {
+          return data
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      } catch (_) {}
+    }
+    return [];
+  }
+
+  /// Crée un produit via `POST /api/produits` (multipart `produit` + `images`),
+  /// 100 % aligné sur `AddProduitComponent.onSubmit()` du Web XFY.
+  Future<Map<String, dynamic>?> createProduct({
+    required Map<String, dynamic> productData,
+    required List<String> imagePaths,
+  }) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}/produits');
+    final request = http.MultipartRequest('POST', uri);
+    if (_token != null && _token!.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $_token';
+    }
+    request.fields['produit'] = jsonEncode(productData);
+    request.fields['variantValueImageKeysDebug'] = '[]';
+
+    for (final path in imagePaths) {
+      if (path.trim().isEmpty) continue;
+      request.files.add(await http.MultipartFile.fromPath('images', path));
+    }
+
+    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final res = await http.Response.fromStream(streamed);
+    final decoded = _decodeBody(res);
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      return {'success': true, 'raw': decoded?.toString()};
+    }
+
+    throw ApiException(
+      _extractErrorMessage(res, decoded),
+      statusCode: res.statusCode,
+    );
+  }
+
+  // ---------------- CHATBOT IA XFY ----------------
+
+  /// Appelle `POST https://xfy.tn/chatbot/extract-info` (exactement comme `ChatbotService` Web).
+  Future<dynamic> chatbotExtractInfo({
+    required List<String> imagePaths,
+    required int storeId,
+    required String action,
+    String message = '',
+  }) async {
+    final uri = Uri.parse('${ApiConstants.hostUrl}/chatbot/extract-info');
+    final request = http.MultipartRequest('POST', uri);
+    if (_token != null && _token!.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $_token';
+    }
+
+    request.fields['storeId'] =
+        (storeId > 0) ? storeId.toString() : (action == 'support' ? '0' : '');
+    request.fields['type'] = action;
+    if (message.trim().isNotEmpty) {
+      request.fields['message'] = message.trim();
+    }
+
+    for (final path in imagePaths) {
+      if (path.trim().isEmpty) continue;
+      request.files.add(await http.MultipartFile.fromPath('images', path));
+    }
+
+    final streamed = await request.send().timeout(const Duration(seconds: 120));
+    final res = await http.Response.fromStream(streamed);
+    final decoded = _decodeBody(res);
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return decoded;
+    }
+
+    throw ApiException(
+      _extractErrorMessage(res, decoded),
+      statusCode: res.statusCode,
+    );
   }
 
   Future<List<DailyBudgetModel>> getDailyBudgetsRange(
